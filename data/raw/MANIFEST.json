@@ -1,0 +1,27 @@
+{
+  "CIK0001501585.json": {
+    "ticker": "HII",
+    "sha256": "72344894dd2b816ed95fbb0381ead9c51ee8e769eba273ed48bbfe699880c299",
+    "bytes": 3011192
+  },
+  "CIK0000202058.json": {
+    "ticker": "LHX",
+    "sha256": "42fd17c34242f68b8fcd3bed7c20bd186d8d39249e8e4d915414899a805ec753",
+    "bytes": 4274516
+  },
+  "CIK0000936468.json": {
+    "ticker": "LMT",
+    "sha256": "aedb683271d2c57451a89db5afa42af45eaaa74c57bc544ddfb427762f785c01",
+    "bytes": 3380288
+  },
+  "CIK0001133421.json": {
+    "ticker": "NOC",
+    "sha256": "5d35e456d5a983567698b3053fa7440a7eea6a8de698d9de9be041e4a6d6d6b7",
+    "bytes": 3655840
+  },
+  "CIK0000101829.json": {
+    "ticker": "RTX",
+    "sha256": "6d08f320c9fff931eb211602c6025869e4353fa548d495d8814b4c4842d26f8a",
+    "bytes": 5137052
+  }
+}

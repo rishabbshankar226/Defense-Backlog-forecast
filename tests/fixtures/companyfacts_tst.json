@@ -1,0 +1,45 @@
+{
+  "cik": 1,
+  "entityName": "Test Co",
+  "facts": {
+    "us-gaap": {
+      "Revenues": {
+        "units": {
+          "USD": [
+            {"start": "2024-01-01", "end": "2024-03-31", "val": 100, "accn": "A1", "form": "10-Q", "filed": "2024-04-25"},
+            {"start": "2024-01-01", "end": "2024-03-31", "val": 105, "accn": "A5", "form": "10-Q", "filed": "2025-04-25"},
+            {"start": "2024-07-01", "end": "2024-09-29", "val": 120, "accn": "A3", "form": "10-Q", "filed": "2024-10-25"},
+            {"start": "2024-01-01", "end": "2024-09-29", "val": 330, "accn": "A3", "form": "10-Q", "filed": "2024-10-25"},
+            {"start": "2024-01-01", "end": "2024-12-31", "val": 470, "accn": "A4", "form": "10-K", "filed": "2025-02-01"},
+            {"start": "2024-01-01", "end": "2024-12-31", "val": 480, "accn": "A4X", "form": "8-K", "filed": "2025-01-20"},
+            {"start": "2025-01-04", "end": "2025-04-04", "val": 130, "accn": "B1", "form": "10-Q", "filed": "2025-04-30"},
+            {"start": "2025-04-05", "end": "2025-07-04", "val": 140, "accn": "B2", "form": "10-Q", "filed": "2025-07-30"},
+            {"start": "2025-07-05", "end": "2025-10-03", "val": 150, "accn": "B3", "form": "10-Q", "filed": "2025-10-30"},
+            {"start": "2025-01-04", "end": "2025-10-03", "val": 420, "accn": "B3", "form": "10-Q", "filed": "2025-10-30"},
+            {"start": "2025-10-04", "end": "2026-01-02", "val": 580, "accn": "B4", "form": "10-K", "filed": "2026-02-01"},
+            {"start": "2026-01-03", "end": "2026-04-03", "val": 999, "accn": "B9", "form": "10-Q", "filed": "2026-11-01"}
+          ]
+        }
+      },
+      "RevenueFromContractWithCustomerExcludingAssessedTax": {
+        "units": {
+          "USD": [
+            {"start": "2024-01-01", "end": "2024-03-31", "val": 99, "accn": "A1", "form": "10-Q", "filed": "2024-04-25"},
+            {"start": "2024-04-01", "end": "2024-06-30", "val": 110, "accn": "A2", "form": "10-Q", "filed": "2024-07-25"}
+          ]
+        }
+      },
+      "RevenueRemainingPerformanceObligation": {
+        "units": {
+          "USD": [
+            {"end": "2024-03-31", "val": 1000, "accn": "A1", "form": "10-Q", "filed": "2024-04-25"},
+            {"end": "2024-03-31", "val": 1010, "accn": "A5", "form": "10-Q", "filed": "2025-04-25"},
+            {"end": "2024-12-31", "val": 1200, "accn": "A4", "form": "10-K", "filed": "2025-02-01"},
+            {"end": "2025-04-04", "val": 1300, "accn": "B1", "form": "10-Q", "filed": "2025-04-30"},
+            {"start": "2025-01-04", "end": "2025-04-04", "val": 7, "accn": "B1", "form": "10-Q", "filed": "2025-04-30"}
+          ]
+        }
+      }
+    }
+  }
+}
