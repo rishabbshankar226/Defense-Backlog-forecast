@@ -18,6 +18,7 @@
     naive: "Last four quarters, repeated",
     naive_drift: "Last four quarters, plus recent growth"
   };
+  var TITLE = document.title;
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   /* ---------- helper text for a broad audience ----------
@@ -108,6 +109,28 @@
     return +p[2] + " " + MONTHS[+p[1] - 1] + " " + p[0];
   }
   function ape(f, a) { return f == null || a == null ? null : Math.abs(a - f) / a * 100; }
+
+  // The same figures as a screen reader should say them: "$12.3 billion", "1.5 percentage
+  // points". Visible text keeps the compact forms.
+  function spoken(text) {
+    return String(text)
+      .replace(/\$(\d[\d.,]*)B\b/g, "$$$1 billion")
+      .replace(/(\d)\s?pp\b/g, "$1 percentage points");
+  }
+
+  // One polite live region for what a change did. Rapid changes (a slider drag, arrow
+  // presses) restart the wait, so only the settled state is spoken. Clearing it first
+  // makes a repeat of the same sentence speak again.
+  var announceTimer = 0;
+  function announce(text, wait) {
+    clearTimeout(announceTimer);
+    announceTimer = setTimeout(function () {
+      var box = $("announce");
+      if (!box) return;
+      box.textContent = "";
+      setTimeout(function () { box.textContent = spoken(text); }, 30);
+    }, wait == null ? 400 : wait);
+  }
 
   /* ---------- motion ---------- */
 
@@ -577,13 +600,14 @@
     };
   }
 
-  // Quarterly axes are labelled at each year's first quarter, every other year when narrow.
-  // Tooltips still name the exact quarter.
+  // Quarterly axes are labelled at each year's first quarter, every other year when narrow
+  // and there are enough years that the axis would crowd. Tooltips still name the exact quarter.
   function yearTick(value) {
     var q = this.getLabelForValue(value);
     if (!/Q1$/.test(q)) return "";
     var y = +q.slice(0, 4);
-    return this.chart.width < 520 && y % 2 ? "" : String(y);
+    var years = this.chart.data.labels.filter(function (l) { return /Q1$/.test(l); }).length;
+    return this.chart.width < 520 && years > 6 && y % 2 ? "" : String(y);
   }
 
   function lineSet(c, label, values, color, width, key) {
@@ -624,6 +648,13 @@
   function watchDensity() {
     drawnRatio = pixelRatio();
     window.addEventListener("resize", applyDensity);
+    // A hidden tooltip keeps its last position. After the window narrows (a phone turned
+    // upright) that can sit past the new edge and widen the page, so it goes back to 0.
+    window.addEventListener("resize", function () {
+      document.querySelectorAll(".tip").forEach(function (t) {
+        if (!t.classList.contains("show")) t.style.transform = "";
+      });
+    });
     (function listen() {
       if (!window.matchMedia) return;
       var mq = window.matchMedia("(resolution: " + (window.devicePixelRatio || 1) + "dppx)");
@@ -813,6 +844,8 @@
     var box = $(id);
     if (!box) return;
     box.$spec = spec;
+    // The box scrolls, so it takes focus for the keyboard and is named for screen readers.
+    box.setAttribute("aria-label", spec.caption + ", table");
     if (box.hidden) return;
     box.textContent = "";
     var t = el("table", "");
@@ -911,7 +944,10 @@
       : "In short: across the five companies taken together, last year's revenue was a better guide to the next year's than backlog.") +
       (against.length ? " " + (against.length > 1 ? against.slice(0, -1).join(", ") + " and " + against[against.length - 1] + " were the exceptions."
         : against[0] + " was the exception.") : "");
-    $("asof").textContent = "Data as of " + longDate(data.as_of);
+    var asof = $("asof"), when = el("time", "", longDate(data.as_of));
+    when.dateTime = data.as_of;
+    asof.textContent = "Data as of ";
+    asof.appendChild(when);
 
     var c = colors(), tiles = $("tiles"), stagger = ms("--stagger");
     // One scale for the pooled bars and each company's dot, so the dots never run off the end.
@@ -919,9 +955,11 @@
       return Object.keys(h4[k]).map(function (t) { return h4[k][t]; });
     })).filter(function (v) { return v != null; }));
     tiles.innerHTML = "";
+    tiles.setAttribute("role", "list");
     // One row per figure: label and value, then a bar on a shared scale so the gaps read at a glance.
     function row(i, cls, name, color, value, share, sub, flag, dots) {
       var t = el("div", "tile" + (cls ? " " + cls : ""));
+      t.setAttribute("role", "listitem");
       t.innerHTML = '<div class="name"></div><div class="val"></div><div class="bar" aria-hidden="true"><i></i></div><div class="sub"></div>';
       if (color) {
         var sw = el("span", "swatch");
@@ -940,7 +978,11 @@
       var delay = (i + 2) * stagger;
       countUp(t.querySelector(".val"), value, delay);
       grow(fill, share, delay);
-      if (dots) addDots(t.querySelector(".bar"), dots, color || c.ink, delay);
+      if (dots) {
+        addDots(t.querySelector(".bar"), dots, color || c.ink, delay);
+        // The dots only name themselves on hover, so the same figures are written out here.
+        t.appendChild(el("span", "sr-only", "By company: " + dots.map(function (d) { return d.label; }).join(", ") + "."));
+      }
       return t;
     }
     var perCo = function (block, fmt, max) {
@@ -970,6 +1012,13 @@
       dot.style.left = (Math.max(0, Math.min(1, d.at)) * 100) + "%";
       dot.style.setProperty("--c", color);
       dot.addEventListener("click", function () { selectTicker(d.t, true); });
+      dot.addEventListener("pointerup", function (e) {
+        if (e.pointerType === "mouse") return;
+        document.querySelectorAll("#tiles .co-dot.named").forEach(function (n) { n.classList.remove("named"); });
+        dot.classList.add("named");
+        clearTimeout(dot.$named);
+        dot.$named = setTimeout(function () { dot.classList.remove("named"); }, 1200);
+      });
       if (!introDone && !still()) {
         dot.style.opacity = "0";
         setTimeout(function () { dot.style.opacity = ""; }, delay + ms("--dur-4") + j * ms("--stagger"));
@@ -1032,7 +1081,6 @@
       b.id = "tab-" + t;
       b.setAttribute("role", "tab");
       b.setAttribute("aria-controls", "company");
-      if (i < 9) b.setAttribute("aria-keyshortcuts", String(i + 1));
       var top = el("span", "card-top");
       top.appendChild(el("span", "card-tk", t));
       var said = name + " (" + t + ").";
@@ -1117,6 +1165,11 @@
     state.year = null;
     renderVerdict(t);
     renderCompany();
+    // The tab and the history entry name the company in view.
+    document.title = (COMPANY[t] ? COMPANY[t] + " (" + t + ")" : t) + " · " + TITLE;
+    // The verdict's figures tween, so it is not a live region itself; its settled
+    // sentence is spoken once instead.
+    if (changed && introDone) announce(($("verdict").textContent || COMPANY[t] || t), 250);
   }
 
   // One sentence on how the backlog model did for the selected company. Its figures run
@@ -1140,15 +1193,23 @@
 
   // The compact bar slides in once the cards have scrolled off the top, and out again
   // when they return. While hidden it is inert, so it never takes focus.
+  // It is checked on scroll rather than with an observer: a jump from the foot of the
+  // page to the top (Tab wrapping round, the Home key) never crosses the cards, so an
+  // observer would leave the bar over the title.
   function watchSticky() {
-    var bar = $("cbar");
-    if (!window.IntersectionObserver) return;
-    new IntersectionObserver(function (entries) {
-      var e = entries[0], show = !e.isIntersecting && e.boundingClientRect.top < 0;
+    var bar = $("cbar"), cards = $("cards"), queued = false, shown = null;
+    function check() {
+      queued = false;
+      var show = cards.getBoundingClientRect().bottom < 0;
+      if (show === shown) return;
+      shown = show;
       bar.classList.toggle("show", show);
       if (show) { bar.removeAttribute("inert"); placePill($("tabs"), false); }
       else bar.setAttribute("inert", "");
-    }).observe($("cards"));
+    }
+    window.addEventListener("scroll", function () { if (!queued) { queued = true; requestAnimationFrame(check); } }, { passive: true });
+    window.addEventListener("resize", check);
+    check();
   }
 
   // A hairline under the compact bar shows how far down the page you are.
@@ -1211,6 +1272,9 @@
 
   /* ---------- panels ---------- */
 
+  // A chart's summary for screen readers, in spoken units.
+  function describe(id, text) { $(id).setAttribute("aria-label", spoken(text)); }
+
   function renderBacklog(co, c) {
     var toB = function (v) { return v == null ? null : v / 1e9; };
     var ch = upsert("c-backlog", {
@@ -1248,7 +1312,7 @@
 
     var L = co.quarters.length - 1;
     var gaps = co.quarters.filter(function (q, i) { return co.backlog_usd[i] == null; });
-    $("c-backlog").setAttribute("aria-label", co.ticker + " backlog and trailing four-quarter revenue by quarter. At " +
+    describe("c-backlog", co.ticker + " backlog and trailing four-quarter revenue by quarter. At " +
       co.quarters[L] + ", backlog was " + billions(co.backlog_usd[L]) + " and trailing revenue " + billions(co.ttm_revenue_usd[L]) + ".");
     $("backlog-note").textContent = "Backlog at each quarter end against revenue over the trailing four quarters, in $B. " +
       "When the backlog line climbs faster than revenue, more signed work is waiting to be delivered." +
@@ -1299,7 +1363,7 @@
       }
     });
     var L = co.quarters.length - 1, up = shown.filter(function (x) { return x >= 1; }).length;
-    $("c-btb").setAttribute("aria-label", co.ticker + " implied book-to-bill by quarter: at or above 1 in " + up + " of " + shown.length +
+    describe("c-btb", co.ticker + " implied book-to-bill by quarter: at or above 1 in " + up + " of " + shown.length +
       " quarters" + (v[L] == null ? "." : ", and " + v[L].toFixed(2) + " at " + co.quarters[L] + "."));
   }
 
@@ -1374,8 +1438,8 @@
       : "Each point is one forecast of the next four quarters' revenue, made using only what was known at the time, and plotted at the last of those quarters.";
 
     var mape = data.metrics.mape[v.toUpperCase()];
-    $("c-fc").setAttribute("aria-label", co.ticker + " " + (v === "h1" ? "next-quarter" : "next-four-quarter") +
-      " forecasts against actual revenue. MAPE: " + MODELS.map(function (m) { return NAMES[v][m] + " " + pct(mape[m][co.ticker]); }).join(", ") + ". " + cap);
+    describe("c-fc", co.ticker + " " + (v === "h1" ? "next-quarter" : "next-four-quarter") +
+      " forecasts against actual revenue. Average miss: " + MODELS.map(function (m) { return NAMES[v][m] + " " + pct(mape[m][co.ticker]); }).join(", ") + ". " + cap);
     document.querySelectorAll(".seg button").forEach(function (b) {
       b.setAttribute("aria-pressed", b.getAttribute("data-view") === v ? "true" : "false");
     });
@@ -1665,10 +1729,10 @@
     $("bridge-cap").textContent = cap;
     renderTable("t-bridge", {
       caption: "What moved revenue",
-      head: ["", "US dollars, billions ($B)"],
+      head: ["Step", "US dollars, billions ($B)"],
       rows: labels.map(function (l, i) { return [l.join(" ").replace("- ", ""), kinds[i] === "total" ? billions(values[i]) : signedBillions(values[i])]; })
     });
-    $("c-bridge").setAttribute("aria-label", co.ticker + " revenue bridge for " + state.year + ". " + cap);
+    describe("c-bridge", co.ticker + " revenue bridge for " + state.year + ". " + cap);
   }
 
   /* ---------- what if ---------- */
@@ -1685,6 +1749,9 @@
       delta.appendChild(el("strong", "", signedBillions(d) + " (" + (d < 0 ? "−" : "+") + Math.abs(d / base * 100).toFixed(1) + "%)"));
       delta.appendChild(document.createTextNode(" compared with " + billions(base) + " with no change"));
     }
+    $("peek-num").textContent = billions(val);
+    $("peek-delta").textContent = d === 0 ? "No change"
+      : signedBillions(d) + " (" + (d < 0 ? "−" : "+") + Math.abs(d / base * 100).toFixed(1) + "%)";
   }
 
   function buildGrid(co, c, shocks, shifts, cell) {
@@ -1693,7 +1760,9 @@
     var table = $("grid");
     Array.prototype.slice.call(table.querySelectorAll("thead, tbody")).forEach(function (n) { n.remove(); });
     var thead = document.createElement("thead"), hr = document.createElement("tr");
-    hr.appendChild(el("th", "", "Backlog"));
+    var corner = el("th", "");
+    corner.appendChild(el("span", "corner", "Backlog"));
+    hr.appendChild(corner);
     shifts.forEach(function (f) { var th = el("th", "", signedPct(f, " pp")); th.scope = "col"; th.dataset.f = f; hr.appendChild(th); });
     thead.appendChild(hr); table.appendChild(thead);
     var tbody = document.createElement("tbody");
@@ -1701,16 +1770,23 @@
       var tr = document.createElement("tr"), th = el("th", "", signedPct(s));
       th.scope = "row"; th.dataset.s = s; tr.appendChild(th);
       shifts.forEach(function (f) {
-        var v = cell(s, f), td = document.createElement("td"), b = el("button", "wash" + (s === 0 && f === 0 ? " base" : ""), billions(v));
+        var v = cell(s, f), td = document.createElement("td"), b = el("button", "wash" + (s === 0 && f === 0 ? " base" : ""));
+        // The dollar sign is its own span, so the smallest phones can drop it to fit.
+        b.appendChild(el("span", "cur", "$"));
+        // A break opportunity before the unit, for text too large to fit on one line.
+        b.appendChild(document.createTextNode(billions(v).slice(1, -1)));
+        b.appendChild(document.createElement("wbr"));
+        b.appendChild(document.createTextNode("B"));
         var share = mx > mn ? (v - mn) / (mx - mn) : 0.5;
         b.type = "button";
         b.dataset.s = s;
         b.dataset.f = f;
         b.style.background = "color-mix(in oklab, " + c.accent + " " + Math.round(7 + share * 53) + "%, " + c.surface + ")";
-        b.setAttribute("aria-label", "Backlog " + signedPct(s) + ", conversion " + signedPct(f, " percentage points") + ": " + billions(v));
+        b.setAttribute("aria-label", spoken("Backlog " + signedPct(s) + ", conversion " + signedPct(f, " percentage points") + ": " + billions(v)));
         // Pointing at a cell lights its row and column headers, so it reads as coordinates.
-        b.addEventListener("mouseenter", function () { hover(s, f); });
-        b.addEventListener("mouseleave", function () { hover(null, null); });
+        // Only a real mouse: a tap would leave the preview stuck on.
+        b.addEventListener("pointerenter", function (e) { if (e.pointerType === "mouse") hover(s, f); });
+        b.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") hover(null, null); });
         b.addEventListener("click", function () {
           state.shock = s; state.shift = f;
           renderWhatIf(data.companies[state.ticker], colors(), true);
@@ -1837,7 +1913,7 @@
       var on = +b.dataset.s === state.shock && +b.dataset.f === state.shift;
       b.classList.toggle("on", on);
       b.tabIndex = on ? 0 : -1;    // one tab stop for the whole grid; arrows move within it
-      if (on) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current");
+      b.setAttribute("aria-pressed", on ? "true" : "false");
     });
     // Light up the row and column headers of the chosen scenario.
     table.querySelectorAll("th[data-s], th[data-f]").forEach(function (th) {
@@ -1845,6 +1921,12 @@
     });
     moveRing(introDone);
     renderFan(co, c, shocks, shifts, cell);
+    if (fromInput) {
+      var d = val - base;
+      announce("Backlog " + signedPct(state.shock) + ", conversion " + signedPct(state.shift, " pp") +
+        ": scenario revenue " + billions(val) + (d === 0 ? ", no change." : ", " + (d > 0 ? "up " : "down ") +
+        billions(Math.abs(d)) + " (" + Math.abs(d / base * 100).toFixed(1) + "%) from no change."));
+    }
   }
 
   function nextQuarter(q, n) {
@@ -1920,10 +2002,10 @@
     var cap = co.ticker + " revenue over the four quarters to " + co.quarters[L] + " was " + billions(ttm) +
       ". The " + all.length + " scenarios for the four quarters to " + labels[end] + " run from " + billions(mn) +
       " to " + billions(mx) + "; the selected one is " + billions(val) + ".";
-    $("c-fan").setAttribute("aria-label", cap);
+    describe("c-fan", cap);
     renderTable("t-fan", {
       caption: $("fan-title").textContent,
-      head: ["", "Revenue over four quarters, $B"],
+      head: ["Quarter", "Revenue over four quarters, $B"],
       rows: co.ttm_revenue_usd.slice(start).map(function (v, i) { return [labels[i], billions(v)]; }).concat([
         [labels[end] + ", selected scenario", billions(val)],
         [labels[end] + ", no change", billions(base)],
@@ -1974,15 +2056,216 @@
     });
   }
 
+  /* ---------- section links, the scenario pill and touch tooltips ---------- */
+
+  // The compact bar's section links scroll to a panel without touching the hash, which
+  // holds the company, then hand focus to the panel's heading. The link for the panel
+  // under the bar is marked as the current one.
+  function watchJump() {
+    var links = [].slice.call($("jump").querySelectorAll("a")), queued = false;
+    // The skip link works the same way, so it never replaces the company in the hash.
+    document.querySelector(".skip").addEventListener("click", function (e) {
+      e.preventDefault();
+      var to = $("cos");
+      to.scrollIntoView({ block: "start", behavior: still() ? "auto" : "smooth" });
+      to.focus({ preventScroll: true });
+    });
+    links.forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        var panel = $(a.getAttribute("href").slice(1));
+        if (!panel) return;
+        e.preventDefault();
+        panel.scrollIntoView({ block: "start", behavior: still() ? "auto" : "smooth" });
+        var h = panel.querySelector("h2");
+        if (h) h.focus({ preventScroll: true });
+      });
+    });
+    function spy() {
+      queued = false;
+      var cur = null, end = innerHeight + scrollY >= document.documentElement.scrollHeight - 2;
+      links.forEach(function (a) {
+        if ($(a.getAttribute("href").slice(1)).getBoundingClientRect().top <= 120) cur = a;
+      });
+      if (end) cur = links[links.length - 1];
+      links.forEach(function (a) {
+        if (a === cur) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current");
+      });
+    }
+    window.addEventListener("scroll", function () { if (!queued) { queued = true; requestAnimationFrame(spy); } }, { passive: true });
+    spy();
+  }
+
+  // On a narrow screen the scenario figure rides at the foot of the screen while the
+  // sliders or grid are in view and the readout itself is not.
+  function watchPeek() {
+    var pill = $("peek"), narrow = window.matchMedia("(max-width: 900px)");
+    if (!window.IntersectionObserver) return;
+    var seen = { num: true, ctl: false, grid: false };
+    function sync() { pill.classList.toggle("show", narrow.matches && !seen.num && (seen.ctl || seen.grid)); }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { seen[e.target.$peek] = e.isIntersecting; });
+      sync();
+    }, { rootMargin: "-64px 0px -72px 0px" });
+    [[$("fwd"), "num"], [document.querySelector(".whatif .controls"), "ctl"], [$("grid-wrap"), "grid"]].forEach(function (t) {
+      t[0].$peek = t[1];
+      io.observe(t[0]);
+    });
+    if (narrow.addEventListener) narrow.addEventListener("change", sync);
+  }
+
+  // A tap leaves a chart's tooltip and the linked crosshairs on screen, since touch has no
+  // mouseout. Tapping anywhere else, or scrolling, clears them.
+  function clearTips() {
+    Object.keys(charts).forEach(function (id) {
+      var ch = charts[id], act = ch.tooltip ? ch.tooltip.getActiveElements() : [];
+      if (ch.$link == null && !act.length) return;
+      ch.$link = null;
+      ch.setActiveElements([]);
+      if (ch.tooltip) ch.tooltip.setActiveElements([], { x: 0, y: 0 });
+      ch.update("none");
+    });
+  }
+
+  /* ---------- reading a chart from the keyboard ---------- */
+
+  // A focused chart steps through its points with the arrow keys. Each step shows the
+  // same tooltip and linked crosshairs a pointer would, and speaks the tooltip's rows.
+  var CHART_IDS = ["c-backlog", "c-btb", "c-fc", "c-bridge", "c-fan"];
+
+  // The points a pointer at quarter i would pick up, shaped like Chart.js's own.
+  function pointsAt(ch, i) {
+    var out = [];
+    ch.data.datasets.forEach(function (ds, j) {
+      if (!ch.isDatasetVisible(j) || ds.key === "s" || ds.data[i] == null) return;
+      out.push({ dataIndex: i, datasetIndex: j, index: i, dataset: ds, raw: ds.data[i], element: ch.getDatasetMeta(j).data[i] });
+    });
+    return out;
+  }
+
+  // Only the indexes whose tooltip says something: the fan's empty future quarters and
+  // the gaps in book-to-bill are skipped.
+  function stops(ch) {
+    var out = [];
+    for (var i = 0; i < ch.data.labels.length; i++) {
+      var pts = pointsAt(ch, i);
+      if (pts.length && ch.$tip && ch.$tip(pts)) out.push(i);
+    }
+    return out;
+  }
+
+  function tipText(spec) {
+    return [spec.title].concat(spec.rows.map(function (r) {
+      return r.label + " " + r.value + (r.extra ? ", " + r.extra : "");
+    })).filter(Boolean).join(". ") + ".";
+  }
+
+  function stepChart(e) {
+    var id = e.currentTarget.id, ch = charts[id];
+    if (!ch) return;
+    if (e.key === "Escape") {
+      if (ch.$kbd == null) return;
+      ch.$kbd = null;
+      clearTips();
+      return;
+    }
+    var list = stops(ch);
+    if (!list.length) return;
+    var at = list.indexOf(ch.$kbd), j;
+    if (e.key === "ArrowRight") j = at < 0 ? 0 : Math.min(list.length - 1, at + 1);
+    else if (e.key === "ArrowLeft") j = at < 0 ? list.length - 1 : Math.max(0, at - 1);
+    else if (e.key === "Home") j = 0;
+    else if (e.key === "End") j = list.length - 1;
+    else return;
+    e.preventDefault();
+    var i = list[j], pts = pointsAt(ch, i);
+    ch.$kbd = i;
+    var act = pts.map(function (p) { return { datasetIndex: p.datasetIndex, index: i }; });
+    var el0 = pts[0].element;
+    ch.setActiveElements(act);
+    if (ch.tooltip) ch.tooltip.setActiveElements(act, { x: el0 ? el0.x : 0, y: el0 ? el0.y : 0 });
+    ch.update("none");
+    if (LINKED.indexOf(id) >= 0) linkHover({ type: "keydown" }, act, ch);
+    announce(tipText(ch.$tip(pts)), 150);
+  }
+
+  function watchChartKeys() {
+    CHART_IDS.forEach(function (id) {
+      var canvas = $(id);
+      canvas.addEventListener("keydown", stepChart);
+      canvas.addEventListener("blur", function () {
+        var ch = charts[id];
+        if (ch && ch.$kbd != null) { ch.$kbd = null; clearTips(); }
+      });
+    });
+  }
+
+  function watchTouchTips() {
+    var touched = false;
+    document.addEventListener("pointerdown", function (e) {
+      if (e.pointerType === "mouse") return;
+      if (e.target.closest && e.target.closest(".chart")) { touched = true; return; }
+      if (touched) { touched = false; clearTips(); }
+    }, { passive: true });
+    window.addEventListener("scroll", function () { if (touched) { touched = false; clearTips(); } }, { passive: true });
+  }
+
   /* ---------- keyboard shortcuts ---------- */
 
-  // 1 to 5 pick a company and R plays or pauses the replay. They stand aside while a
-  // text field, slider or menu has focus, and whenever a modifier key is held.
+  // 1 to 5 pick a company, R plays or pauses the replay and ? lists them. They stand
+  // aside while a text field, slider, menu or dialog has focus, and whenever a modifier
+  // key is held. Single keys can be set off by speech input, so the list carries a
+  // switch that turns them off; the choice is kept for the next visit.
+  var keysOn = true;
+  try { keysOn = localStorage.getItem("dbf-keys") !== "off"; } catch (e) { /* on for this visit */ }
+
+  function syncKeys() {
+    var sw = $("keys-switch");
+    sw.setAttribute("aria-checked", keysOn ? "true" : "false");
+    $("keys-open").textContent = keysOn ? "Keyboard shortcuts" : "Keyboard shortcuts (off)";
+    document.querySelectorAll("#cards .card").forEach(function (b, i) {
+      if (keysOn && i < 9) b.setAttribute("aria-keyshortcuts", String(i + 1)); else b.removeAttribute("aria-keyshortcuts");
+    });
+    if (keysOn) $("play").setAttribute("aria-keyshortcuts", "R"); else $("play").removeAttribute("aria-keyshortcuts");
+    document.documentElement.classList.toggle("keys-off", !keysOn);
+  }
+
+  function watchKeysDialog() {
+    var dlg = $("keys-dlg"), opener = null;
+    function open() {
+      opener = document.activeElement;
+      if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
+      $("keys-switch").focus();
+    }
+    function close() {
+      if (dlg.close) dlg.close(); else dlg.removeAttribute("open");
+    }
+    dlg.addEventListener("close", function () { if (opener && opener.focus) opener.focus(); });
+    // A click on the backdrop, outside the box, closes it.
+    dlg.addEventListener("click", function (e) {
+      if (e.target !== dlg) return;
+      var r = dlg.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) close();
+    });
+    $("keys-open").addEventListener("click", open);
+    $("keys-close").addEventListener("click", close);
+    $("keys-switch").addEventListener("click", function () {
+      keysOn = !keysOn;
+      try { localStorage.setItem("dbf-keys", keysOn ? "on" : "off"); } catch (e) { /* this visit only */ }
+      syncKeys();
+      announce(keysOn ? "Single-key shortcuts on." : "Single-key shortcuts off.", 0);
+    });
+    syncKeys();
+    return open;
+  }
+
   function watchKeys() {
+    var openKeys = watchKeysDialog();
     document.addEventListener("keydown", function (e) {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!keysOn || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
       var t = e.target, tag = t && t.tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
+      if ($("keys-dlg").open) return;
+      if (e.key === "?") { e.preventDefault(); openKeys(); return; }
       var n = /^[1-9]$/.test(e.key) ? +e.key : 0;
       if (n && n <= tickers.length) {
         var onCard = document.activeElement && document.activeElement.closest && document.activeElement.closest("#cards");
@@ -2032,6 +2315,7 @@
   /* ---------- start ---------- */
 
   function ready() {
+    if (introDone) return;
     var root = document.documentElement;
     root.classList.add("ready");
     introAt = performance.now();
@@ -2097,18 +2381,48 @@
     placePill(seg, false);
     watchSticky();
     watchProgress();
-    requestAnimationFrame(function () {
+    watchJump();
+    watchPeek();
+    watchTouchTips();
+    watchChartKeys();
+    // Reveal on the next frame, or shortly after if frames are being held back.
+    var started = false;
+    var start = function () {
+      if (started) return;
+      started = true;
       ready();
       watchCharts();
-    });
+    };
+    requestAnimationFrame(start);
+    setTimeout(start, 100);
   }
 
-  fetch("data.json")
-    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(init)
-    .catch(function (err) {
-      if (window.console) console.error(err);
-      $("headline").textContent = "The data file did not load. Serve this folder over HTTP and reload.";
-      document.documentElement.classList.add("ready");
+  // A failed download says so and offers another try; the page is shown either way.
+  function failed(err) {
+    if (window.console) console.error(err);
+    var head = $("headline"), b = el("button", "retry wash", "Try again");
+    head.textContent = "The data did not load. ";
+    head.setAttribute("role", "alert");
+    b.type = "button";
+    b.addEventListener("click", function () {
+      head.removeAttribute("role");
+      head.textContent = "Loading the results.";
+      load();
     });
+    head.appendChild(b);
+    document.documentElement.classList.add("ready");
+    b.focus();
+  }
+
+  function load() {
+    fetch("data.json")
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(init, failed)
+      .catch(function (err) {
+        if (window.console) console.error(err);
+        document.documentElement.classList.add("ready");
+      });
+  }
+
+  load();
 })();

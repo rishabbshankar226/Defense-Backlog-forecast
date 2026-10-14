@@ -13,7 +13,7 @@ from dbf.config import OUTPUT, RESULTS, SOURCE_LINE, TICKERS  # noqa: E402
 
 INK = "#1c1c1c"
 ACCENT = "#b4451f"
-NAIVE = "#a9a9a9"
+NAIVE = "#8a8a8a"
 DRIFT = "#6b6b6b"
 GRID = "#e4e2dd"
 PAPER = "#fbfaf7"

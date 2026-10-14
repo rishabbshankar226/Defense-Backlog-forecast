@@ -18,14 +18,15 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-serif: Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Cambria, Georgia, serif;
 
-  /* Type scale: size, line height and tracking per step */
-  --fs-xs: 13px;  --lh-xs: 1.45; --ls-xs: 0.005em;
-  --fs-sm: 14px;  --lh-sm: 1.5;  --ls-sm: 0;
-  --fs-md: 16px;  --lh-md: 1.55; --ls-md: -0.003em;
-  --fs-lg: 20px;  --lh-lg: 1.45; --ls-lg: -0.008em;
-  --fs-xl: 28px;  --lh-xl: 1.1;  --ls-xl: -0.02em;
-  --fs-2xl: clamp(32px, 20px + 2.2vw, 48px); --lh-2xl: 1.04; --ls-2xl: -0.018em;
-  --fs-lede: clamp(18px, 14px + 0.6vw, 23px); --lh-lede: 1.42; --ls-lede: -0.006em;
+  /* Type scale: size, line height and tracking per step. In rem, so a reader's own
+     default text size carries through (13px at the usual 16px default, and so on). */
+  --fs-xs: 0.8125rem; --lh-xs: 1.45; --ls-xs: 0.005em;
+  --fs-sm: 0.875rem;  --lh-sm: 1.5;  --ls-sm: 0;
+  --fs-md: 1rem;      --lh-md: 1.55; --ls-md: -0.003em;
+  --fs-lg: 1.25rem;   --lh-lg: 1.45; --ls-lg: -0.008em;
+  --fs-xl: 1.75rem;   --lh-xl: 1.1;  --ls-xl: -0.02em;
+  --fs-2xl: clamp(2rem, 1.25rem + 2.2vw, 3rem); --lh-2xl: 1.04; --ls-2xl: -0.018em;
+  --fs-lede: clamp(1.125rem, 0.875rem + 0.6vw, 1.4375rem); --lh-lede: 1.42; --ls-lede: -0.006em;
   --ls-caps: 0.08em;
 
   /* Radii */
@@ -67,7 +68,7 @@
   --accent: #b4451f;
   --accent-soft: rgba(180, 69, 31, 0.12);
   --accent-line: rgba(180, 69, 31, 0.32);
-  --naive: #a9a9a9;
+  --naive: #8a8a8a;      /* 3.4:1 on the surface, the floor for a line that carries meaning */
   --drift: #6b6b6b;
   --hover: rgba(27, 26, 23, 0.055);
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235d5a53' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -152,7 +153,9 @@
 
 * { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+/* Focused controls scroll clear of the fixed compact bar at the top and the scenario
+   pill at the foot, so the keyboard never lands under either. */
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 72px; scroll-padding-bottom: 72px; }
 
 body {
   margin: 0;
@@ -172,9 +175,60 @@ body {
 
 a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
 a:hover { text-decoration-thickness: 2px; }
-a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible {
+a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible,
+canvas:focus-visible, [tabindex]:focus-visible, summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Read by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The first stop for the keyboard: hidden until focused, then pinned top left. */
+.skip {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 60;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--on-ink);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow-3);
+}
+/* Out of sight, and out of the contrast check, until it has focus. */
+.skip:not(:focus) {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skip:focus-visible { outline-color: var(--accent); }
+
+.noscript {
+  max-width: 1200px;
+  margin: var(--space-4) auto 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--accent);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
 }
 
 button { -webkit-tap-highlight-color: transparent; }
@@ -438,6 +492,9 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   .co-dot:hover { transform: translate(-50%, -50%) scale(1.25); z-index: 2; }
   .co-dot:hover::after { opacity: 1; transform: translate(-50%, 0); }
 }
+/* A tap has no hover, so a tapped dot names itself for a moment instead. */
+.co-dot.named { z-index: 2; }
+.co-dot.named::after { opacity: 1; transform: translate(-50%, 0); }
 .dots-key { margin: var(--space-1) 0 var(--space-3); font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted); }
 
 /* ---------- segmented controls: company tabs and horizon toggle ---------- */
@@ -529,7 +586,9 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
 
 /* ---------- company cards: the tabs, each with a small record of its own ---------- */
 
-.cos { margin-bottom: var(--space-5); }
+.cos { margin-bottom: var(--space-5); scroll-margin-top: var(--space-4); }
+/* The skip link's target takes focus only to start the tab order there. */
+.cos:focus { outline: none; }
 .cos-head {
   display: flex;
   align-items: center;
@@ -538,7 +597,21 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   gap: var(--space-1) var(--space-4);
   margin-bottom: var(--space-3);
 }
-.keys { margin: 0; font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted); }
+.keys { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); margin: 0; font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted); }
+.keys-off .keys-hint { display: none; }
+.keys-open {
+  padding: var(--space-1) 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.keys-open:hover { text-decoration-thickness: 2px; }
 kbd {
   display: inline-block;
   min-width: 1.6em;
@@ -621,7 +694,9 @@ kbd {
   font-weight: 600;
   white-space: nowrap;
 }
-.badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+/* Better points up and worse points down, so the badge reads without its colour. */
+.badge-dot { width: 7px; height: 6px; background: currentColor; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.badge.down .badge-dot { clip-path: polygon(0 0, 100% 0, 50% 100%); }
 .badge.up { color: color-mix(in oklab, var(--accent) 72%, var(--ink)); background: var(--accent-soft); }
 .badge.down { color: var(--muted); background: var(--track); }
 
@@ -925,7 +1000,7 @@ kbd {
   transition: transform var(--dur-1) var(--ease-out);
 }
 .play[hidden] { display: none; }
-.play[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.play[aria-pressed="true"] { background: var(--accent); color: var(--on-ink); }
 .play:active { transform: scale(0.97); }
 .play svg { display: block; }
 .scrub { flex: 1; min-width: 0; height: 24px; margin: 0; }
@@ -1054,7 +1129,7 @@ kbd {
 .ticks span.on { color: var(--ink); font-weight: 600; }
 
 .big { padding-top: var(--space-5); border-top: 1px solid var(--hairline-strong); }
-.big-label { font-size: var(--fs-xs); line-height: var(--lh-xs); font-weight: 600; text-transform: uppercase; letter-spacing: var(--ls-caps); color: var(--muted); }
+.big-label { margin: 0; font-size: var(--fs-xs); line-height: var(--lh-xs); font-weight: 600; text-transform: uppercase; letter-spacing: var(--ls-caps); color: var(--muted); }
 .big-num {
   font-size: var(--fs-2xl);
   line-height: var(--lh-2xl);
@@ -1081,7 +1156,7 @@ kbd {
   text-wrap: pretty;
 }
 
-.grid-wrap { position: relative; min-width: 0; }
+.grid-wrap { position: relative; min-width: 0; container: grid / inline-size; }
 .grid {
   width: calc(100% + 6px);
   margin: 0 -3px;
@@ -1099,7 +1174,7 @@ kbd {
   padding: 0 3px var(--space-3);
   text-wrap: pretty;
 }
-.grid th { font-weight: 500; color: var(--muted); font-size: var(--fs-xs); padding: 0 0 var(--space-1); text-align: center; white-space: nowrap; }
+.grid th { font-weight: 500; color: var(--muted); font-size: var(--fs-xs); padding: 0 0 var(--space-1); text-align: center; }
 .grid th.hl { color: var(--ink); font-weight: 700; }
 .grid th.hv { color: var(--ink); }
 .grid thead th:first-child { width: 3.6em; text-align: right; padding-right: var(--space-1); }
@@ -1108,13 +1183,14 @@ kbd {
 .grid td button {
   display: block;
   width: 100%;
-  height: 40px;
+  min-height: 40px;
   font: inherit;
   font-size: var(--fs-xs);
   font-weight: 500;
-  padding: 0;
-  white-space: nowrap;
-  overflow: hidden;
+  padding: 0 1px;
+  /* A figure that cannot fit at a reader's larger text size breaks onto a second
+     line rather than being cut off. */
+  overflow-wrap: break-word;
   cursor: pointer;
   border: 0;
   border-radius: var(--radius-sm);
@@ -1132,6 +1208,8 @@ kbd {
   pointer-events: none;
 }
 .grid td button.on { font-weight: 700; }
+/* A focused cell rises above its neighbours so they never paint over its outline. */
+.grid td button:focus-visible { z-index: 2; }
 .ring {
   position: absolute;
   top: 0;
@@ -1217,18 +1295,30 @@ kbd {
   .panel.method { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
 }
 
-/* Narrow: the cards keep the ticker, the small chart and a badge dot. Five full cards
+/* Narrow: the cards keep the ticker, the badge and the small chart. Five full cards
    need about 860px; below that they would run off the side. */
 @media (max-width: 860px) {
   .cards { gap: var(--space-2); }
   .card { padding: var(--space-2) var(--space-2) var(--space-2) 10px; border-radius: var(--radius-md); }
-  .card-name, .card-cov, .badge-txt { display: none; }
-  .badge { padding: 0; background: none; }
-  .badge-dot { width: 7px; height: 7px; }
+  .card-name, .card-cov { display: none; }
   .card-tk { font-size: var(--fs-md); }
   .card-spark { height: 28px; margin: var(--space-1) 0 0; }
-  .keys { display: none; }
+  .keys-hint { display: none; }
   .backdrop { width: 100%; height: 55%; }
+}
+/* Narrower still, the badge shrinks to its dot in the card's corner, and a key beside
+   the heading says what the two colours mean. */
+@media (max-width: 760px) {
+  .badge-txt { display: none; }
+  .badge { position: absolute; top: 14px; right: var(--space-2); padding: 0; background: none; }
+  .badge-dot { width: 9px; height: 8px; }
+  .card-tk { padding-right: 10px; }
+}
+/* Too narrow for a dot beside the ticker: every card puts it on the line below. */
+@media (max-width: 420px) {
+  .card-top { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .badge { position: static; }
+  .card-tk { padding-right: 0; }
 }
 
 @media (max-width: 520px) {
@@ -1250,7 +1340,7 @@ kbd {
   .chart { height: 280px; }
   .chart.chart-btb { height: 90px; }
   .grid { border-spacing: 2px; width: calc(100% + 4px); margin: 0 -2px; }
-  .grid td button { height: 34px; font-size: calc(var(--fs-xs) - 1px); letter-spacing: -0.02em; }
+  .grid td button { min-height: 34px; font-size: calc(var(--fs-xs) - 1px); letter-spacing: -0.02em; }
   .grid thead th:first-child { width: 3em; }
   .grid th { font-size: calc(var(--fs-xs) - 1px); }
 }
@@ -1386,7 +1476,24 @@ kbd {
   cursor: pointer;
   transition: transform var(--dur-1) var(--ease-out);
 }
-.reset:active { transform: scale(0.98); }
+.reset:active, .retry:active { transform: scale(0.98); }
+/* Shown beside the headline when the data fails to load. */
+.retry {
+  margin-left: var(--space-1);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 3px var(--space-3);
+  vertical-align: 2px;
+  cursor: pointer;
+}
+@media (pointer: coarse) { .retry { min-height: 44px; } }
 .reset[aria-disabled="true"] { color: var(--muted); background: transparent; border-color: var(--line); cursor: default; }
 .reset[aria-disabled="true"]:active { transform: none; }
 .reset[aria-disabled="true"]::after { opacity: 0 !important; }
@@ -1422,6 +1529,15 @@ kbd {
 .data-table th, .data-table td { padding: 6px var(--space-3); border-top: 1px solid var(--hairline); white-space: nowrap; }
 .data-table thead th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font-weight: 600; text-align: right; border-top: 0; box-shadow: 0 1px 0 var(--hairline-strong); }
 .data-table thead th:first-child, .data-table tbody th { text-align: left; }
+/* The row label stays put while a wide table scrolls sideways. */
+.data-table thead th:first-child, .data-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--hairline-strong);
+}
+.data-table thead th:first-child { z-index: 2; box-shadow: 0 1px 0 var(--hairline-strong), 1px 0 0 var(--hairline-strong); }
 .data-table tbody th { font-weight: 500; color: var(--ink-2); }
 .data-table td { text-align: right; color: var(--ink); }
 
@@ -1435,17 +1551,279 @@ kbd {
   :root { --thumb: 26px; }
   .range { height: 44px; }
   .tabs button, .seg button, .chip, .pick select { min-height: 44px; }
-  .grid td button { height: 44px; }
+  .grid td button { min-height: 44px; }
   .info { width: 44px; height: 44px; margin: -10px; }
   .reset, .table-toggle, .play { min-height: 44px; }
   .co-dot::before { inset: -10px; }
   .scrub { height: 44px; }
   .theme { width: 44px; height: 44px; margin: -14px -12px -14px 0; }
-  .keys { display: none; }
+  .keys-hint { display: none; }
+  .keys-open, .keys-close { min-height: 44px; }
+  .switch { min-height: 44px; }
+}
+
+/* ---------- card key, section links and the scenario pill ---------- */
+
+/* What the cards' dots mean, once the badges have shrunk to dots. */
+.cos-key {
+  display: none;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--muted);
+}
+.ck { display: inline-flex; align-items: center; gap: 5px; }
+.ck::before { content: ""; flex: none; width: 9px; height: 8px; }
+.ck.up::before { background: color-mix(in oklab, var(--accent) 72%, var(--ink)); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.ck.down::before { background: var(--muted); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+@media (max-width: 760px) { .cos-key { display: flex; } }
+
+/* Section links fill the compact bar's empty right side on wide screens. */
+.jump { display: none; align-items: center; gap: var(--space-5); margin-left: auto; }
+.jump a {
+  padding: 6px 0 4px;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+}
+.jump a:hover { color: var(--ink); }
+.jump a[aria-current] { color: var(--ink); border-bottom-color: var(--accent); }
+@media (min-width: 1100px) { .jump { display: flex; } }
+
+/* A panel heading takes focus after a section link, without a ring around the words. */
+.panel h2:focus { outline: none; }
+.panel h2:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 2px; }
+
+/* The scenario figure, floating at the foot of a narrow screen while the readout is out
+   of sight and the sliders or grid are in view. */
+.peek {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  z-index: 35;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  max-width: calc(100vw - 2 * var(--space-4));
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--on-ink);
+  box-shadow: var(--shadow-3);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 12px);
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out), visibility 0s linear var(--dur-2);
+}
+.peek.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out), visibility 0s; }
+.peek-label { font-size: var(--fs-xs); line-height: var(--lh-xs); font-weight: 600; text-transform: uppercase; letter-spacing: var(--ls-caps); opacity: 0.7; }
+.peek-num { font-size: var(--fs-md); line-height: var(--lh-md); font-weight: 700; }
+.peek-delta { font-size: var(--fs-xs); line-height: var(--lh-xs); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 901px) { .peek { display: none; } }
+
+/* ---------- narrow phones ---------- */
+
+/* The replay's scrubber drops to its own line rather than shrinking to a sliver. */
+.replay-ctl { flex-wrap: wrap; row-gap: var(--space-3); }
+.scrub { flex: 1 1 140px; }
+
+@media (max-width: 520px) {
+  /* All five tickers share the compact bar, however narrow. */
+  .cbar .tabs { width: 100%; grid-auto-columns: minmax(0, 1fr); }
+  .cbar .tabs button { padding-left: 0; padding-right: 0; }
+  /* The grid's caption names both axes, so the corner label is left to screen readers. */
+  .grid .corner { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+  /* A little less air in the header, so the cards sit higher. */
+  .meta { margin-bottom: var(--space-3); }
+  .head { row-gap: var(--space-5); }
+  .howto { gap: var(--space-3); padding-top: var(--space-4); }
+}
+
+/* When the grid is narrow for its text size (a small phone, or larger text), the cells
+   drop their dollar sign first; their accessible names keep it. */
+@container grid (max-width: 19em) {
+  .grid td .cur { display: none; }
+}
+
+/* The smallest phones: the grid's figures tighten so none is clipped. */
+@media (max-width: 360px) {
+  .grid { border-spacing: 1px; width: calc(100% + 2px); margin: 0 -1px; }
+  .grid td button { font-size: 11px; letter-spacing: -0.03em; }
+  .grid td .cur { display: none; }
+}
+
+/* The running-miss rows: name on one line, bar and figure under it. */
+@media (max-width: 420px) {
+  .ro-row { grid-template-columns: 8px minmax(0, 1fr) 3.6em; grid-template-areas: "sw name val" ". bar ."; row-gap: 3px; }
+  .ro-sw { grid-area: sw; }
+  .ro-name { grid-area: name; }
+  .ro-val { grid-area: val; }
+  .ro-bar { grid-area: bar; }
+  .replay-out { gap: var(--space-2); }
+}
+
+/* A phone on its side: the charts fit the screen under the compact bar. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .chart { height: min(320px, calc(100vh - 120px)); }
+  .chart.chart-btb { height: 80px; }
+  .whatif .fan .chart { height: min(260px, calc(100vh - 120px)); }
 }
 
 /* Inspectable charts say so on hover. */
 .fig:not(.bridge) .chart canvas { cursor: crosshair; }
+
+/* ---------- keyboard shortcuts: the list and its on/off switch ---------- */
+
+.keys-dlg {
+  width: min(440px, calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100vh - 2 * var(--space-8));
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+}
+.keys-dlg::backdrop { background: rgba(21, 21, 20, 0.4); }
+.keys-dlg-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+.keys-dlg h2 { margin: 0; font-family: var(--font-serif); font-size: var(--fs-lg); line-height: 1.25; }
+.keys-close {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: -4px -8px -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.keys-close:hover { color: var(--ink); }
+.keys-list { display: grid; gap: var(--space-2); margin: 0 0 var(--space-5); font-size: var(--fs-sm); line-height: var(--lh-sm); }
+.keys-list div { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: var(--space-3); align-items: baseline; }
+.keys-list dt { white-space: nowrap; }
+.keys-list dd { margin: 0; color: var(--ink-2); }
+.keys-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--hairline);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  font-weight: 600;
+}
+.keys-note { margin: var(--space-2) 0 0; font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted); }
+
+/* An on/off switch: the knob sits right and the track fills when on. */
+.switch {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--track-strong);
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out);
+}
+.switch-knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.switch[aria-checked="true"] .switch-knob { transform: translateX(18px); }
+
+/* ---------- reader settings: more contrast, less transparency, forced colours ---------- */
+
+@media (prefers-contrast: more) {
+  :root {
+    --muted: #46433d;
+    --line: #b9b2a5;
+    --line-strong: #8f887b;
+    --hairline: rgba(43, 36, 24, 0.28);
+    --hairline-strong: rgba(43, 36, 24, 0.4);
+    --naive: #6f6f6f;
+    --drift: #4a4a4a;
+  }
+  :root[data-theme="dark"] {
+    --muted: #c4c1ba;
+    --line: #5a5852;
+    --line-strong: #7a776f;
+    --hairline: rgba(255, 255, 255, 0.22);
+    --hairline-strong: rgba(255, 255, 255, 0.32);
+    --naive: #8c8c8c;
+    --drift: #c4c4c4;
+  }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --muted: #c4c1ba;
+    --line: #5a5852;
+    --line-strong: #7a776f;
+    --hairline: rgba(255, 255, 255, 0.22);
+    --hairline-strong: rgba(255, 255, 255, 0.32);
+    --naive: #8c8c8c;
+    --drift: #c4c4c4;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .cbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* Windows High Contrast and other forced palettes drop backgrounds, which would hide the
+   sliding pills and the colour swatches. Selection is shown with the system highlight
+   instead, the light label copies are dropped, and swatches keep their own colours. */
+@media (forced-colors: active) {
+  .pill, .tabs button::before, .seg button::before { display: none; }
+  [aria-selected="true"] > .lbl, [aria-pressed="true"] > .lbl { opacity: 1; }
+  .tabs button, .seg button, .grid td button { border: 1px solid transparent; }
+  .tabs button[aria-pressed="true"], .seg button[aria-pressed="true"], .grid td button[aria-pressed="true"] {
+    forced-color-adjust: none;
+    background: Highlight !important;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+  .grid td button { background: Canvas !important; color: CanvasText; border-color: CanvasText; }
+  .card { border: 1px solid CanvasText; }
+  .card[aria-selected="true"] { border: 3px solid Highlight; }
+  .chip-sw, .tile .swatch, .ro-sw, .tip-sw, .badge-dot, .ck::before, .tile .bar i, .ro-bar i, .co-dot, .switch { forced-color-adjust: none; }
+  .switch { border: 1px solid CanvasText; background: Canvas; }
+  .switch[aria-checked="true"] { background: Highlight; border-color: Highlight; }
+  .switch-knob { background: CanvasText; }
+  .switch[aria-checked="true"] .switch-knob { background: HighlightText; }
+  .ring { border-color: Highlight; }
+  .panel, .score, .def, .tip, .keys-dlg, .replay, .whatif .big { border: 1px solid CanvasText; }
+  .skip, .peek, .play { border: 1px solid CanvasText; }
+  .range { forced-color-adjust: none; }
+  .range::-webkit-slider-runnable-track { background: GrayText; }
+  .range::-moz-range-track { background: GrayText; }
+  .range::-moz-range-progress { background: Highlight; }
+  .range::-webkit-slider-thumb { background: Canvas; border-color: Highlight; }
+  .range::-moz-range-thumb { background: Canvas; border-color: Highlight; }
+}
 
 /* ---------- print: the figures and their words, without the controls' chrome ---------- */
 
@@ -1453,7 +1831,7 @@ kbd {
   :root { --bg: #fff; --surface: #fff; --shadow-1: none; --shadow-2: none; --shadow-3: none; }
   body { background: #fff; }
   .js:not(.ready) body { visibility: visible; }
-  .cbar, .keys, .theme, .replay-ctl, .backdrop, .panel::after, .tip, .ring, .info, .def, .reset, .table-toggle { display: none; }
+  .cbar, .keys, .skip, .keys-dlg, .theme, .replay-ctl, .backdrop, .panel::after, .tip, .ring, .info, .def, .reset, .table-toggle, .peek, .cos-key { display: none; }
   .panel { break-inside: avoid; box-shadow: none; }
   a { color: inherit; }
 }
