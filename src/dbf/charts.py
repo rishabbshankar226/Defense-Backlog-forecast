@@ -1,4 +1,4 @@
-"""Three PNG charts at 1600 x 900 in output/charts/."""
+"""Three PNG charts in output/charts/: 16 x 9 inches, saved at 200 dpi (3200 x 1800) so they stay sharp on high-density screens."""
 
 import csv
 import json
@@ -25,6 +25,10 @@ NAMES = {
 
 PHRASE = {"naive": "trailing 4Q revenue", "naive_drift": "trailing 4Q with drift"}
 
+# Figures are laid out at 100 dpi (1600 x 900) and saved at twice that, so every element
+# keeps its place and size while the file has four times the pixels.
+SAVE_DPI = 200
+
 plt.rcParams.update({
     "font.size": 14, "axes.edgecolor": "#8a8a8a", "axes.labelcolor": INK, "text.color": INK,
     "xtick.color": INK, "ytick.color": INK, "axes.spines.top": False, "axes.spines.right": False,
@@ -44,7 +48,7 @@ def _source(fig):
 def _save(fig, name):
     path = OUTPUT / "charts" / name
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path, dpi=100)
+    fig.savefig(path, dpi=SAVE_DPI)
     plt.close(fig)
     print(f"wrote {path.relative_to(OUTPUT.parent)}")
 
