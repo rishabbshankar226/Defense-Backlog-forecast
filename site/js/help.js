@@ -49,7 +49,7 @@ function place() {
   if (!open) return;
   const def = $("def"), r = open.getBoundingClientRect();
   if (r.bottom < 0 || r.top > innerHeight) { close(); return; }
-  const w = def.offsetWidth, h = def.offsetHeight, gap = 6;
+  const w = def.offsetWidth, h = def.offsetHeight, gap = 8;
   const x = Math.max(16, Math.min(r.left - 12, innerWidth - w - 16));
   const below = r.bottom + gap + h <= innerHeight - 8;
   def.style.left = Math.round(x) + "px";

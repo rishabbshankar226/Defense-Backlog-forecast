@@ -2,7 +2,7 @@
    the replay that steps through them in the order they were made. */
 
 import { $, el, still } from "../dom.js";
-import { usdB, usdM, signedM, pct } from "../format.js";
+import { usdB, signedM, pct, signedPct } from "../format.js";
 import { COMPANY, MODELS, NAMES, HORIZON, APE_NOTE } from "../copy.js";
 import { forecastsFor } from "../model.js";
 import { baseOptions, linked, lineSet, upsert, renderLegend, describe, charts } from "./base.js";
@@ -47,21 +47,28 @@ export function renderForecast(model, st, c, period) {
   const ch = upsert("c-fc", {
     type: "line",
     data: { labels: list.map((b) => b.target), datasets },
-    options: linked(baseOptions(c, v === "h1" ? "US$ billions, quarter" : "US$ billions, four quarters",
+    options: linked(baseOptions(c, "US$B · GAAP vs model",
       v === "h1" ? "Quarter forecast" : "Last of the four quarters forecast"))
   }, {
     $colors: c, $crosshair: true, $ends: true, $band: true, $upto: null, $miss: worstMark, $worst: worstMark,
+    // Period, actual, each model's forecast and its variance, to the table's precision. The
+    // backlog model's variance is green when it missed by less than the baseline, red when by more.
     $tip: (pts) => {
-      const i = pts[0].dataIndex, b = list[i];
+      const i = pts[0].dataIndex, b = list[i], bk = b.rows.backlog, nv = b.rows.naive;
+      const tone = bk && bk.beatsNaive != null ? (bk.beatsNaive ? "fav" : "unfav") : null;
       return {
         title: b.target + " (forecast made at " + b.origin + ")",
-        note: APE_NOTE,
+        cols: ["", "US$B", "Variance $", "Variance %"],
+        note: bk && nv ? [NAMES[v].backlog + ":", `missed by ${pct(bk.ape, 2)}, ${bk.ape < nv.ape ? "less" : "more"} than the ${NAMES[v].naive} baseline at ${pct(nv.ape, 2)}.`] : APE_NOTE,
         rows: pts.map((p) => {
           const k = p.dataset.key, color = p.dataset.$color, dash = p.dataset.borderDash.length > 0;
-          if (k === "actual") return { color, label: "Actual (GAAP)", value: usdB(b.actual), extra: usdM(b.actual) };
+          if (k === "actual") return { color, label: "Actual (GAAP)", value: usdB(b.actual) };
           const r = b.rows[k];
-          if (!r) return { color, dash, label: p.dataset.label, value: "no forecast" };
-          return { color, dash, label: p.dataset.label, value: usdB(r.forecast), extra: "off " + pct(r.ape) + " · " + signedM(r.error) };
+          const label = p.dataset.label;
+          if (!r) return { color, dash, label, value: "no forecast" };
+          const t = k === "backlog" ? tone : null;
+          return { color, dash, label, value: usdB(r.forecast), extra: signedM(r.error, 1), extraTone: t,
+            change: signedPct(r.error / r.actual * 100, 2), tone: t };
         })
       };
     }
@@ -153,9 +160,10 @@ function writeReplay(k, all) {
 }
 
 function syncPlay() {
-  const b = $("play"), mid = replay.at != null && replay.at < replay.n - 1;
+  // One name, with its pressed state saying whether it is playing; only the icon changes.
+  const b = $("play");
   b.innerHTML = replay.playing ? PAUSE : PLAY;
-  b.appendChild(el("span", "", replay.playing ? "Pause" : mid ? "Continue" : "Replay"));
+  b.appendChild(el("span", "", "Replay"));
   b.setAttribute("aria-pressed", replay.playing ? "true" : "false");
 }
 

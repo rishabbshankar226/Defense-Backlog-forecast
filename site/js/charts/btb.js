@@ -38,9 +38,10 @@ export function renderBtb(model, st, c, period) {
       return {
         title: r.quarter,
         rows: [
-          { color: fills[pts[0].dataIndex], label: "Implied book-to-bill", value: times(r.btb, 2), extra: r.btb >= 1 ? "▲ backlog grew" : "▼ backlog shrank" },
-          { color: c.muted, label: "Implied bookings (derived)", value: usdM(r.bookings), extra: "" },
-          { color: c.muted, label: "Revenue, quarter (GAAP)", value: usdM(r.revenue), extra: "" }
+          { color: fills[pts[0].dataIndex], label: "Implied book-to-bill", value: times(r.btb, 2),
+            change: r.btb >= 1 ? "▲ backlog grew" : "▼ backlog shrank", tone: r.btb >= 1 ? "fav" : "unfav" },
+          { color: c.muted, label: "Implied bookings (derived)", value: usdM(r.bookings) },
+          { color: c.muted, label: "Revenue, quarter (GAAP)", value: usdM(r.revenue) }
         ]
       };
     }

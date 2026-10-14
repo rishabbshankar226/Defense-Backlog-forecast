@@ -31,6 +31,7 @@ const theme = {
   afterDatasetsDraw(chart) {
     if (chart.$miss && chart.$upto == null) drawMiss(chart);
     if (chart.$connectors) drawConnectors(chart);
+    if (chart.$breaks) drawBreaks(chart);
     chart.ctx.restore();
     if (chart.$upto != null) {
       if (chart.$miss) drawMiss(chart);
@@ -179,19 +180,22 @@ function drawBand(chart) {
   ctx.restore();
 }
 
-// The forecast span of the scenario fan, as a light wash with its name at the top.
+// The forecast span of the scenario fan, as a light wash with its name at the top, and the
+// reported span before it named too. A name too wide for the wash falls back to a shorter one.
 function drawFuture(chart) {
   const a = chart.chartArea, ctx = chart.ctx, c = chart.$colors;
   const x = chart.scales.x.getPixelForValue(chart.$future);
   ctx.save();
   ctx.fillStyle = c.wash;
   ctx.fillRect(x, a.top, a.right - x, a.bottom - a.top);
+  ctx.font = font(11);
+  ctx.fillStyle = c.muted;
+  ctx.textBaseline = "top";
   if (chart.$futureLabel) {
-    ctx.font = font(11);
-    ctx.fillStyle = c.muted;
-    ctx.textBaseline = "top";
-    ctx.fillText(chart.$futureLabel, x + 6, a.top + 4);
+    const names = [chart.$futureLabel].concat(chart.$futureShort || []);
+    ctx.fillText(names.find((n) => ctx.measureText(n).width <= a.right - x - 12) || names[names.length - 1], x + 6, a.top + 4);
   }
+  if (chart.$pastLabel) ctx.fillText(chart.$pastLabel, a.left + 6, a.top + 4);
   ctx.restore();
 }
 
@@ -313,6 +317,28 @@ function drawConnectors(chart) {
   ctx.restore();
 }
 
+// A bar that measures from zero but starts on an axis cut above it is drawn with a break: a
+// slanted gap across it near the axis, and the same across the axis line, as print charts do.
+// `$breaks` lists the bars that measure from zero (a waterfall's totals).
+function drawBreaks(chart) {
+  const a = chart.chartArea, ctx = chart.ctx, y = a.bottom - 12, rise = 3, gap = 3;
+  const band = (x0, x1) => {
+    ctx.beginPath();
+    ctx.moveTo(x0, y + rise);
+    ctx.lineTo(x1, y - rise);
+    ctx.lineTo(x1, y - rise + gap);
+    ctx.lineTo(x0, y + rise + gap);
+    ctx.closePath();
+    ctx.fill();
+  };
+  ctx.save();
+  ctx.fillStyle = chart.$colors.surface;
+  const bars = chart.getDatasetMeta(0).data;
+  chart.$breaks.forEach((i) => { const b = bars[i]; if (b) band(b.x - b.width / 2 - 1, b.x + b.width / 2 + 1); });
+  band(a.left - 5, a.left + 5);
+  ctx.restore();
+}
+
 /* ---------- tooltip ---------- */
 
 // One HTML tooltip for every chart, with figures right-aligned in their own columns.
@@ -329,13 +355,20 @@ function externalTip(context) {
   tip.textContent = "";
   if (spec.title) tip.appendChild(el("div", "tip-title", spec.title));
   const rows = el("div", "tip-rows");
+  if (spec.cols) {
+    rows.appendChild(el("span", ""));
+    spec.cols.forEach((c, i) => rows.appendChild(el("span", "tip-col" + (i ? " n" : ""), c)));
+  }
+  // A row's variance cells take its polarity colour: `tone` for the change, `extraTone` for extra.
+  const cellTone = (t) => (t === "fav" || t === "unfav" ? " " + t : "");
   spec.rows.forEach((r) => {
     const sw = el("span", "tip-sw" + (r.dash ? " dash" : ""));
     sw.style.setProperty("--c", r.color);
     rows.appendChild(sw);
     rows.appendChild(el("span", "tip-label", r.label));
     rows.appendChild(el("span", "tip-val", r.value));
-    rows.appendChild(el("span", "tip-x", r.extra || ""));
+    rows.appendChild(el("span", "tip-x" + cellTone(r.extraTone), r.extra || ""));
+    rows.appendChild(el("span", "tip-x" + cellTone(r.tone), r.change || ""));
   });
   tip.appendChild(rows);
   if (spec.note) {
@@ -358,16 +391,18 @@ function externalTip(context) {
 const tickB = (v) => (v < 0 ? "−" : "") + "$" + Math.abs(v).toLocaleString("en-US") + "B";
 
 /**
- * Shared options with explicit axes: an axis line and tick marks on both axes, and a
- * title on each that names the unit and scale.
+ * Shared options with explicit axes: a hairline axis on the left and bottom only, tick
+ * marks on both, dashed horizontal gridlines and no vertical ones, and a title on each axis
+ * that names the unit, the scale and the basis. Tick figures are set in the monospaced
+ * face, since a canvas cannot ask for tabular figures.
  * @param c       colours from colors()
  * @param yTitle  y-axis title, e.g. "US$ billions"
  * @param xTitle  x-axis title, or "" for none
  * @param yTick   tick formatter; dollars in billions by default
  */
 export function baseOptions(c, yTitle, xTitle, yTick = tickB) {
-  const tick = { size: 11 };
-  const axisTitle = (text) => ({ display: !!text, text, color: c.muted, font: { size: 11, weight: 600 }, padding: 4 });
+  const tick = { size: 12, family: c.mono };
+  const axisTitle = (text) => ({ display: !!text, text, color: c.muted, font: { size: 12, weight: 600 }, padding: 4 });
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -380,14 +415,15 @@ export function baseOptions(c, yTitle, xTitle, yTick = tickB) {
       x: {
         title: axisTitle(xTitle),
         ticks: { color: c.muted, font: tick, maxRotation: 0, autoSkip: false, padding: 4, callback: yearTick },
-        grid: { display: true, drawOnChartArea: false, drawTicks: true, tickLength: 4, color: c.axis },
-        border: { display: true, color: c.axis, width: 1 }
+        grid: { display: true, drawOnChartArea: false, drawTicks: true, tickLength: 4, color: c.line },
+        border: { display: true, color: c.line, width: 1 }
       },
       y: {
         title: axisTitle(yTitle),
         ticks: { color: c.muted, font: tick, padding: 4, maxTicksLimit: 6, callback: yTick },
-        grid: { color: c.grid, drawTicks: true, tickLength: 4, tickColor: c.axis },
-        border: { display: true, color: c.axis, width: 1 }
+        grid: { color: c.grid, drawTicks: true, tickLength: 4, tickColor: c.line },
+        // In Chart.js 4 the border's dash applies to the gridlines; the axis line stays solid.
+        border: { display: true, color: c.line, width: 1, dash: [3, 3] }
       }
     }
   };
@@ -531,7 +567,7 @@ function stops(ch) {
 }
 
 function tipText(spec) {
-  return [spec.title].concat(spec.rows.map((r) => r.label + " " + r.value + (r.extra ? ", " + r.extra : "")))
+  return [spec.title].concat(spec.rows.map((r) => r.label + " " + r.value + (r.extra ? ", " + r.extra : "") + (r.change ? ", " + r.change : "")))
     .filter(Boolean).join(". ") + ".";
 }
 

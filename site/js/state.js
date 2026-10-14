@@ -41,7 +41,8 @@ export function subscribe(fn, keys) { subs.push({ fn, keys }); }
 export function readUrl(tickers, minYear, maxYear) {
   const h = location.hash.replace("#", "").toUpperCase();
   const q = new URLSearchParams(location.search);
-  state.ticker = tickers.includes(h) ? h : tickers.includes("LMT") ? "LMT" : tickers[0];
+  const home = tickers.includes("LMT") ? "LMT" : tickers[0];
+  state.ticker = tickers.includes(h) ? h : home;
   const view = (q.get("view") || "").toLowerCase();
   if (view === "h1" || view === "h4") state.view = view;
   const yr = (k, d) => { const v = parseInt(q.get(k), 10); return v >= minYear && v <= maxYear ? v : d; };
@@ -49,6 +50,8 @@ export function readUrl(tickers, minYear, maxYear) {
   state.to = yr("to", maxYear);
   if (state.from > state.to) [state.from, state.to] = [state.to, state.from];
   state.bounds = { minYear, maxYear };
+  // What the global Reset returns to, and what the active-filter count measures against.
+  state.defaults = { ticker: home, view: "h4", from: minYear, to: maxYear };
   ["shock", "shift"].forEach((k) => { const v = parseFloat(q.get(k)); if (isFinite(v)) state[k] = v; });
 }
 

@@ -68,6 +68,19 @@ def test_bridge_ties_to_quarters_and_to_the_cent(t):
 
 
 @pytest.mark.parametrize("t", COS)
+def test_bridge_inputs_are_the_quarterly_rows(t):
+    # The dashboard prints each bridge's starting backlogs and conversion rates beside the
+    # waterfall: backlog at the prior year's Q4, and the year's revenue over it.
+    co = COS[t]
+    Q, B = co["quarters"], co["backlog_usd"]
+    for b in co["bridge"]:
+        assert b["backlog_start_prior_usd"] == B[Q.index(f"{b['year'] - 2}Q4")]
+        assert b["backlog_start_usd"] == B[Q.index(f"{b['year'] - 1}Q4")]
+        assert b["conversion_prior"] == pytest.approx(b["revenue_prior_usd"] / b["backlog_start_prior_usd"], abs=1e-12)
+        assert b["conversion"] == pytest.approx(b["revenue_usd"] / b["backlog_start_usd"], abs=1e-12)
+
+
+@pytest.mark.parametrize("t", COS)
 def test_forecast_actuals_are_table_revenue(t):
     co = COS[t]
     Q, R = co["quarters"], co["revenue_usd"]

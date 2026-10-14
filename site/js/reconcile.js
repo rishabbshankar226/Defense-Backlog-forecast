@@ -4,7 +4,7 @@
 
 import { MODELS } from "./copy.js";
 import { cents } from "./format.js";
-import { ape, inPeriod, summarize, forecastsFor } from "./model.js";
+import { ape, inPeriod, summarize, sharedSummary, forecastsFor } from "./model.js";
 
 function check(id, name, unit) {
   return { id, name, unit, n: 0, maxDiff: 0, failures: [] };
@@ -32,11 +32,11 @@ const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
 export function reconcile(model, tickers, period, view) {
   const ttm = check("ttm", "Trailing four-quarter revenue charted = sum of its four quarterly revenue rows", "cents");
   const annual = check("annual", "Bridge annual revenue = sum of that year's quarterly revenue rows", "cents");
-  const steps = check("steps", "Bridge effects recomputed from the backlog and revenue rows, and prior-year revenue + backlog + conversion + overlap = current-year revenue", "cents");
+  const steps = check("steps", "Bridge starting backlog, conversion rates and effects recomputed from the backlog and revenue rows, and prior-year revenue + backlog + conversion + overlap = current-year revenue", "cents");
   const bookings = check("bookings", "Implied bookings = change in backlog + quarterly revenue, and book-to-bill = bookings ÷ revenue", "cents");
   const actual = check("actual", "Forecast actuals = quarterly revenue rows (one quarter, or the sum of four)", "cents");
-  const scenario = check("scenario", "What-if scenarios recomputed from the latest backlog and the typical conversion rate", "cents");
-  const kpi = check("kpi", "KPI and scorecard miss, bias and win count = the forecast rows in this period, recomputed from forecast and actual", "pp");
+  const scenario = check("scenario", "What-if scenarios and their starting conversion rate recomputed from the latest backlog and the quarterly revenue rows", "cents");
+  const kpi = check("kpi", "KPI and scorecard miss, bias, win count and like-for-like miss = the forecast rows in this period, recomputed from forecast and actual", "pp");
   const metrics = check("metrics", "Average miss, bias, win rate and count recomputed from the forecast rows = published results", "pp");
 
   tickers.forEach((t) => {
@@ -89,6 +89,11 @@ export function reconcile(model, tickers, period, view) {
         compare(steps, Infinity, `${t} ${b.year} inputs`);
       } else {
         const c0 = r0 / b0, c1 = r1 / b1;
+        // The inputs the driver table prints beside the waterfall.
+        compare(steps, cents(b0) - cents(b.backlogStartPrior), `${t} ${b.year} prior-year starting backlog`);
+        compare(steps, cents(b1) - cents(b.backlogStart), `${t} ${b.year} starting backlog`);
+        same(steps, b.convPrior, c0, `${t} ${b.year} prior-year conversion`, 1e-12);
+        same(steps, b.conv, c1, `${t} ${b.year} conversion`, 1e-12);
         compare(steps, cents((b1 - b0) * c0) - b.c.backlog, `${t} ${b.year} backlog effect`);
         compare(steps, cents(b0 * (c1 - c0)) - b.c.conv, `${t} ${b.year} conversion effect`);
         compare(steps, cents((b1 - b0) * (c1 - c0)) - b.c.overlapRaw, `${t} ${b.year} overlap`);
@@ -111,6 +116,8 @@ export function reconcile(model, tickers, period, view) {
     const conv4 = (k) => (k < 0 || k + 4 > L || rows[k].backlog == null || !rows[k].backlog ? null : sum(k + 1, 4) == null ? null : sum(k + 1, 4) / rows[k].backlog);
     const cs = [4, 5, 6, 7].map((k) => conv4(L - k));
     const base = cs.some((x) => x == null) ? null : mean(cs);
+    // The four-quarter conversion the what-if prints as its starting rate: the no-change cell over today's backlog.
+    same(scenario, S.cell(0, 0) == null || !rows[L].backlog ? null : S.cell(0, 0) / rows[L].backlog, base, `${t} typical conversion`, 1e-12);
     S.shocks.forEach((s) => S.shifts.forEach((f) => {
       const want = base == null || rows[L].backlog == null ? null : rows[L].backlog * (1 + s / 100) * (base + f / 100);
       const got = S.cell(s, f);
@@ -124,6 +131,7 @@ export function reconcile(model, tickers, period, view) {
   // from the Forecast and Actual columns, against the shared summary they are drawn from.
   const fc = forecastsFor(model, view, period);
   const s = summarize(fc, view + "|" + period.from + "|" + period.to);
+  const sh = sharedSummary(fc, "shared|" + view + "|" + period.from + "|" + period.to);
   groups.forEach((g) => {
     MODELS.forEach((m) => {
       const sel = fc.filter((r) => r.model === m && (g === "ALL" || r.ticker === g));
@@ -135,6 +143,10 @@ export function reconcile(model, tickers, period, view) {
     const scored = fc.filter((r) => r.model === "backlog" && (g === "ALL" || r.ticker === g) && naive.has(r.ticker + r.origin));
     const wins = scored.filter((r) => ape(r.forecast, r.actual) < ape(naive.get(r.ticker + r.origin).forecast, r.actual)).length;
     same(kpi, s.win[g] ? s.win[g].wins : null, scored.length ? wins : null, `${view} ${g} wins`, 0);
+    // The scorecard's like-for-like note: the baseline's miss on the origins the backlog model scores.
+    same(kpi, sh.mape.naive ? sh.mape.naive[g] : null,
+      scored.length ? mean(scored.map((r) => ape(naive.get(r.ticker + r.origin).forecast, r.actual))) : null,
+      `${view} naive ${g} average miss on shared origins`, 1e-9);
   });
 
   // The published results cover the full sample, so this one ignores the period.

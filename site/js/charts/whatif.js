@@ -30,7 +30,6 @@ export function renderWhatIf(model, st, c, fromInput) {
   [["shock", S.shocks, st.shock, "%"], ["shift", S.shifts, st.shift, " pp"]].forEach(([id, list, cur, unit]) => {
     const input = $(id), i = list.indexOf(cur), n = list.length - 1;
     Object.assign(input, { min: 0, max: n, step: 1, value: i });
-    input.style.setProperty("--p", n ? i / n : 0.5);
     input.setAttribute("aria-valuetext", setting(cur, unit === "%" ? "%" : " percentage points") + (id === "shock" ? " backlog" : " conversion"));
     input.oninput = () => store.set({ [id]: list[+input.value] });
     $(id + "-out").textContent = setting(cur, unit);
@@ -49,6 +48,16 @@ export function renderWhatIf(model, st, c, fromInput) {
   $("fwd-delta").textContent = st.shock === 0 && st.shift === 0
     ? "Today's backlog at its typical conversion rate"
     : delta(val, base) + " against " + usdB(base) + " with no change";
+  // The scenario's inputs: today's backlog and the four-quarter conversion the published
+  // no-change scenario implies, each with its change. Stated as inputs rather than as a
+  // product, since rounded inputs need not multiply back to the rounded total.
+  const conv = base / last.backlog * 100, inputs = $("fwd-inputs");
+  inputs.textContent = "";
+  [`Backlog ${usdB(last.backlog * (1 + st.shock / 100))}${st.shock ? ` (${setting(st.shock)})` : ""}`,
+    `four-quarter conversion ${pct(conv + st.shift)}${st.shift ? ` (${setting(st.shift, " pp")})` : ""}`].forEach((part, i) => {
+    if (i) inputs.appendChild(document.createTextNode(" · "));
+    inputs.appendChild(el("span", "nw", part));  // each input breaks as a whole
+  });
   $("peek-num").textContent = usdB(val);
   $("peek-delta").textContent = delta(val, base);
 
@@ -57,7 +66,8 @@ export function renderWhatIf(model, st, c, fromInput) {
   $("fwd-context").textContent = `Trailing four-quarter revenue to ${last.quarter} was ${usdB(last.ttm)}, so the no-change ` +
     `scenario sits ${pct(Math.abs(gap))} ${gap >= 0 ? "above" : "below"} it.` +
     (bias == null ? "" : ` In the backtest, the backlog model's four-quarter forecasts for ${t} ran ${pct(Math.abs(bias))} ${bias >= 0 ? "high" : "low"} on average.`);
-  $("whatif-from").textContent = `From ${last.quarter}, the latest quarter. The period filter does not apply here.`;
+  $("whatif-from").textContent = `From ${last.quarter}, the latest quarter, for ${nextQuarter(last.quarter, 1)}–${nextQuarter(last.quarter, 4)}. ` +
+    "The period filter does not apply here.";
 
   const table = $("grid");
   if (table.$key !== t + "|" + c.backlog + "|" + c.surface) buildGrid(t, S, c);
@@ -184,11 +194,13 @@ function renderFan(t, S, rows, c, st) {
   sel.spanGaps = true;
   datasets.push(none, sel);
   const mn = Math.min(...all), mx = Math.max(...all);
-  const opts = baseOptions(c, "US$ billions, four quarters", "");
+  // GAAP history and model scenarios share the axis; the key and the two span labels say which is which.
+  const opts = baseOptions(c, "US$ billions", "");
   opts.scales.y.ticks.maxTicksLimit = 5;
   upsert("c-fan", { type: "line", data: { labels, datasets }, options: opts }, {
     $colors: c, $crosshair: true, $ends: true, $endKeys: isBase ? ["sel"] : ["base", "sel"],
-    $future: at, $futureLabel: "Next four quarters", $cells: cells, $preview: null,
+    $future: at, $futureLabel: `Next four quarters, ${labels[at + 1]}–${labels[end]}`, $futureShort: ["Next four quarters", "Next 4Q"],
+    $pastLabel: "Reported", $cells: cells, $preview: null,
     $tip: (pts) => {
       const i = pts[0].dataIndex;
       if (i <= at) {

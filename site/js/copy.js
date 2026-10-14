@@ -40,10 +40,11 @@ export const HELP = {
   seasonal: { ask: "What is seasonal naive?", terms: [["Seasonal naive", "Assumes next quarter's revenue matches the same quarter a year earlier."]] },
   seasonal_drift: { ask: "What is seasonal naive with drift?", terms: [["Seasonal naive with drift", "The same quarter a year earlier, grown at the rate trailing revenue grew over the past year."]] },
   bridge: { ask: "What are conversion rate and overlap?", terms: [
-    ["Conversion rate", "The share of the backlog at the start of a year that became revenue during that year."],
+    ["Annual conversion rate", "The share of the backlog at the start of a year that became revenue during that year."],
     ["Overlap (interaction)", "The part of the change that comes from backlog and conversion moving at the same time, so the three effects add up exactly. Shown to the cent, it absorbs any rounding."]] },
   shock: { ask: "What is a change in backlog?", terms: [["Change in backlog", "A hypothetical rise or fall in today's backlog, as a percentage of it."]] },
-  shift: { ask: "What is a change in conversion rate?", terms: [["Change in conversion rate (pp)", "A hypothetical change to the conversion rate, in percentage points: an absolute change in the rate, not a percentage of it."]] },
+  shift: { ask: "What is a change in conversion rate?", terms: [["Change in conversion rate (pp)", "A hypothetical change to the four-quarter conversion rate, in percentage points: an absolute change in the rate, not a percentage of it."]] },
+  conv4: { ask: "What is the four-quarter conversion rate?", terms: [["Four-quarter conversion rate", "Revenue over the next four quarters divided by the backlog at their start. The scenario starts from its average over the four origins one to two years before the latest quarter, the rate the backlog model uses."]] },
   btb: { ask: "What is implied book-to-bill?", terms: [
     ["Implied book-to-bill", "Orders implied by the filings, divided by the quarter's revenue. The implied orders are the change in backlog plus the quarter's revenue, so above 1 means backlog grew that quarter."],
     ["A residual, not an orders figure", "The implied orders also absorb cancellations, currency moves and acquisitions, so a single quarter can jump."]] },
@@ -51,7 +52,7 @@ export const HELP = {
   colour: { ask: "What do red and green mean?", terms: [["Red and green", "Green marks a favourable variance and red an unfavourable one, always with ▲ or ▼ and a sign. Lines and bars that only identify a series are never red or green."]] }
 };
 
-export const APE_NOTE = ["Off by:", "how far the forecast was from actual revenue, as a share of actual."];
+export const APE_NOTE = ["Variance:", "forecast less actual revenue. As a share of actual, its size is the miss (APE)."];
 
 /** Which definition sits beside each legend entry. */
 export function keyHelp(chart, view, key) {

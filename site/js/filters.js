@@ -7,9 +7,8 @@ import * as store from "./state.js";
 import { play } from "./charts/forecast.js";
 
 /* A radio group of buttons: one tab stop, arrow keys move and choose. */
-function radioGroup(box, items, key, label) {
+function radioGroup(box, items, key) {
   box.setAttribute("role", "radiogroup");
-  box.setAttribute("aria-label", label);
   box.textContent = "";
   items.forEach(([value, text, name]) => {
     const b = el("button", "", text);
@@ -44,8 +43,8 @@ function syncGroup(box, value) {
 }
 
 export function initFilters(model) {
-  radioGroup($("f-company"), model.tickers.map((t) => [t, t, `${COMPANY[t]} (${t})`]), "ticker", "Company");
-  radioGroup($("f-view"), [["h1", "Next quarter"], ["h4", "Next 4 quarters"]], "view", "Forecast horizon");
+  radioGroup($("f-company"), model.tickers.map((t) => [t, t, `${COMPANY[t]} (${t})`]), "ticker");
+  radioGroup($("f-view"), [["h1", "Next quarter"], ["h4", "Next 4 quarters"]], "view");
   const years = [];
   for (let y = model.minYear; y <= model.maxYear; y++) years.push(y);
   ["f-from", "f-to"].forEach((id) => {
@@ -61,7 +60,16 @@ export function initFilters(model) {
     const to = +e.target.value, st = store.get();
     store.set({ to, from: Math.min(to, st.from) });
   });
-  $("f-reset").addEventListener("click", () => store.set({ from: model.minYear, to: model.maxYear }));
+  $("f-reset").addEventListener("click", () => {
+    const st = store.get();
+    if (active(st)) store.set({ ...st.defaults });
+  });
+}
+
+/** How many global filters differ from the page's defaults. */
+function active(st) {
+  const d = st.defaults;
+  return ["ticker", "view"].filter((k) => st[k] !== d[k]).length + (st.from !== d.from || st.to !== d.to ? 1 : 0);
 }
 
 export function syncFilters(st, keys) {
@@ -69,9 +77,17 @@ export function syncFilters(st, keys) {
   syncGroup($("f-view"), st.view);
   $("f-from").value = String(st.from);
   $("f-to").value = String(st.to);
-  const full = st.from === st.bounds.minYear && st.to === st.bounds.maxYear;
-  $("f-reset").hidden = full;
+  const n = active(st), count = $("f-count");
+  count.textContent = "";
+  if (n) {
+    count.appendChild(el("strong", "", String(n)));
+    count.appendChild(document.createTextNode(n === 1 ? " filter changed" : " filters changed"));
+  } else count.textContent = "Default view";
+  $("f-reset").setAttribute("aria-disabled", n ? "false" : "true");
+  $("hdr-period").textContent = st.from === st.to ? String(st.from) : st.from + "–" + st.to;
   $("f-name").textContent = COMPANY[st.ticker];
+  // Each company panel names the company it shows, even when empty or failed.
+  document.querySelectorAll("[data-co]").forEach((n) => { n.textContent = st.ticker; });
   document.title = `${COMPANY[st.ticker]} (${st.ticker}) · Does backlog predict revenue?`;
   if (keys && (keys.has("ticker") || keys.has("view") || keys.has("from") || keys.has("to"))) {
     announce(`Showing ${COMPANY[st.ticker]}, ${HORIZON[st.view].toLowerCase()}, ${st.from} to ${st.to}.`, 300);

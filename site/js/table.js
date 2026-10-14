@@ -178,6 +178,9 @@ export function renderTable(model, st) {
       $("t-search").value = "";
       store.set({ query: "", model: "all", scope: "all",
         from: st.bounds.minYear, to: st.bounds.maxYear });
+      // The button goes with the redraw, so focus moves to the search box, not the page.
+      store.flush();
+      $("t-search").focus();
     });
   } else {
     tbody.innerHTML = body(cols, rows, st.limit);

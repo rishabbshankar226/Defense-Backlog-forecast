@@ -7,8 +7,10 @@ skipped, so `make test` still runs the model tests on their own.
 
 import functools
 import http.server
+import json
 import re
 import threading
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 import pytest
@@ -220,6 +222,20 @@ def test_the_table_caption_wraps_inside_its_box(browser, base_url, width):
     page.context.close()
 
 
+@pytest.mark.parametrize("width", [1201, 1280, 1440])
+def test_the_scorecard_shows_every_company_without_scrolling(browser, base_url, width):
+    # At half width it once cut off its last column, the company the finding names as the
+    # exception among them.
+    page = open_page(browser, base_url, width=width)
+    scroll, client = page.evaluate(
+        "() => { const s = document.querySelector('#p-score .scroll-x'); return [s.scrollWidth, s.clientWidth]; }"
+    )
+    assert scroll <= client
+    shown = page.evaluate("[...document.querySelectorAll('#scorecard tbody th')].map(th => th.textContent.trim())")
+    assert shown == ["All five", "HII", "LHX", "LMT", "NOC", "RTX"]
+    page.context.close()
+
+
 def test_a_hidden_tooltip_never_widens_a_narrowed_page(browser, base_url):
     page = open_page(browser, base_url, width=1280)
     page.focus("#c-fc")
@@ -274,6 +290,33 @@ def test_reconciliation_passes_for_each_company_and_all_five(browser, base_url, 
     page.context.close()
 
 
+def one_dp(rate):
+    """A conversion rate as the page prints it: one decimal, halves rounded away from zero."""
+    return str(Decimal(repr(rate * 100)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)) + "%"
+
+
+def test_bridge_caption_shows_conversion_changes_that_whole_percents_hid(browser, base_url):
+    # In whole percents these years printed conversion as unchanged beside a conversion
+    # effect the chart shows. Every year must name its change instead.
+    data = json.loads((SITE / "data.json").read_text())
+    page = open_page(browser, base_url)
+    for t, year in (("HII", 2024), ("RTX", 2022), ("RTX", 2025)):
+        b = next(r for r in data["companies"][t]["bridge"] if r["year"] == year)
+        assert round(b["conversion_prior"] * 100) == round(b["conversion"] * 100)
+        page.click(f"#f-company [data-value='{t}']")
+        page.click(f"#years [data-year='{year}']")
+        page.wait_for_function(
+            "([t, y]) => document.getElementById('kpis-co-title').textContent.includes('(' + t + ')') &&"
+            " document.getElementById('bridge-cap').textContent.startsWith(y + ' revenue')",
+            arg=[t, str(year)],
+        )
+        cap = page.text_content("#bridge-cap")
+        assert "held" not in cap
+        assert f"from {one_dp(b['conversion_prior'])} to {one_dp(b['conversion'])} of starting backlog" in cap
+    assert page.errors == []
+    page.context.close()
+
+
 def test_chart_tooltip_figure_matches_the_table_cell(browser, base_url):
     page = open_page(browser, base_url)
     page.focus("#c-backlog")
@@ -312,6 +355,28 @@ def test_an_empty_period_shows_empty_states_and_recovers(browser, base_url):
     page.wait_for_selector("#p-fc[data-state='ready']")
     assert page.input_value("#f-from") == "2018" and page.input_value("#f-to") == "2026"
     assert page.errors == []
+    page.context.close()
+
+
+def test_nothing_under_an_empty_panels_message_takes_focus(browser, base_url):
+    # An empty panel keeps its size with its message over the old content. That content must
+    # leave the tab order, or focus lands on charts and buttons the message hides (WCAG 2.4.11).
+    page = open_page(browser, base_url, width=1280, height=720, hash="#LHX")
+    page.select_option("#f-to", "2019")
+    page.wait_for_selector("#p-fc[data-state='empty']")
+    page.evaluate("document.activeElement.blur()")
+    hidden = set()
+    for _ in range(120):
+        page.keyboard.press("Tab")
+        r = page.evaluate(
+            """() => {
+              const a = document.activeElement, panel = a && a.closest('[data-state="empty"], [data-state="error"]');
+              return panel && !a.closest('.p-head, .state') ? panel.id + ' ' + (a.id || a.className || a.tagName) : null;
+            }"""
+        )
+        if r:
+            hidden.add(r)
+    assert hidden == set()
     page.context.close()
 
 

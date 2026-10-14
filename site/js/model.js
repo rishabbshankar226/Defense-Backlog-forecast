@@ -136,3 +136,11 @@ export function summarize(rows, memoKey) {
 export function forecastsFor(model, view, period) {
   return model.forecastRows.filter((r) => r.horizon === view && inPeriod(r.year, period));
 }
+
+/* The same statistics on the origins the backlog model also scores. The baselines need no
+   backlog, so they score origins it cannot; keeping only shared origins makes a difference
+   between models like for like. The published results keep every origin. */
+export function sharedSummary(rows, memoKey) {
+  const scored = new Set(rows.filter((r) => r.model === "backlog").map((r) => r.ticker + "|" + r.horizon + "|" + r.origin));
+  return summarize(rows.filter((r) => scored.has(r.ticker + "|" + r.horizon + "|" + r.origin)), memoKey);
+}

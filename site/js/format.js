@@ -49,6 +49,9 @@ export function usdCents(c) {
 /** Dollars to integer cents. Every reconciliation sum is done in these. */
 export function cents(v) { return v == null ? null : Math.round(v * 100); }
 
+/** A value as it prints at `dp` decimals, back as a number: shown(0.004, 2) -> 0. */
+export function shown(v, dp = 1) { return v == null ? null : Number(grouped(dp).format(v).replace(/,/g, "")); }
+
 export function pct(v, dp = 1) { return v == null ? NA : grouped(dp).format(v) + "%"; }
 export function signedPct(v, dp = 1) { return v == null ? NA : sign(v) + grouped(dp).format(Math.abs(v)) + "%"; }
 
@@ -58,9 +61,6 @@ export function pp(v, dp = 1) { return v == null ? NA : sign(v) + grouped(dp).fo
 /** A multiple: "3.1×". */
 export function times(v, dp = 1) { return v == null ? NA : grouped(dp).format(v) + "×"; }
 export function signedTimes(v, dp = 1) { return v == null ? NA : sign(v) + grouped(dp).format(Math.abs(v)) + "×"; }
-
-/** A rate (0.4583) as a whole percentage: "46%". */
-export function rate(v) { return v == null ? NA : Math.round(v * 100) + "%"; }
 
 const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 /** A small count as a word, as prose reads it: inWords(5) -> "five". */

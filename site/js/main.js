@@ -10,7 +10,7 @@ import * as store from "./state.js";
 import { guard, pageState, setPanelState } from "./ui-state.js";
 import { watchInfo } from "./help.js";
 import { initFilters, syncFilters, watchTheme, watchKeys } from "./filters.js";
-import { renderHeadline, renderKpis, renderScorecard } from "./kpis.js";
+import { renderHeadline, renderPoolKpis, renderCompanyKpis, renderScorecard } from "./kpis.js";
 import { renderTable, watchTable } from "./table.js";
 import { watchCharts, charts } from "./charts/base.js";
 import { renderBacklog } from "./charts/backlog.js";
@@ -19,14 +19,15 @@ import { renderForecast, watchReplay } from "./charts/forecast.js";
 import { renderBridge } from "./charts/bridge.js";
 import { renderWhatIf, gridKeys, watchPeek } from "./charts/whatif.js";
 
-const PANELS = ["kpis", "p-score", "p-backlog", "p-fc", "p-bridge", "p-whatif", "p-table"];
+const PANELS = ["kpis", "p-score", "kpis-company", "p-backlog", "p-fc", "p-bridge", "p-whatif", "p-table"];
 let model = null;
 
 /* Which parts of the page redraw for which state changes. */
 const GLOBAL = ["ticker", "view", "from", "to"];
 const PARTS = [
-  { panel: "kpis", keys: GLOBAL, draw: (st, p) => renderKpis(model, st, p) },
+  { panel: "kpis", keys: ["view", "from", "to"], draw: (st, p) => renderPoolKpis(model, st, p) },
   { panel: "p-score", keys: GLOBAL, draw: (st, p) => renderScorecard(model, st, p) },
+  { panel: "kpis-company", keys: GLOBAL, draw: (st, p) => renderCompanyKpis(model, st, p) },
   { panel: "p-backlog", keys: ["ticker", "from", "to"], draw: (st, p, c) => {
     const a = renderBacklog(model, st, c, p);
     return a || renderBtb(model, st, c, p);
@@ -41,14 +42,20 @@ const PARTS = [
 function draw(st, keys) {
   const p = store.period(), c = colors();
   syncFilters(st, keys);
-  // An empty panel under a narrowed period offers the way back to every year.
-  const widen = st.from !== st.bounds.minYear || st.to !== st.bounds.maxYear
-    ? { label: "Show all years", run: () => store.set({ from: st.bounds.minYear, to: st.bounds.maxYear }) } : null;
+  // An empty panel under a narrowed period offers the way back to every year. The button
+  // goes once the panel redraws, so focus moves to the panel's heading rather than the page.
+  const narrowed = st.from !== st.bounds.minYear || st.to !== st.bounds.maxYear;
+  const widen = (panel) => ({ label: "Show all years", run: () => {
+    store.set({ from: st.bounds.minYear, to: st.bounds.maxYear });
+    store.flush();
+    const h = $(panel).querySelector("h2[tabindex], h3[tabindex]");
+    if (h) h.focus();
+  } });
   PARTS.forEach((part) => {
     if (keys && !part.keys.some((k) => keys.has(k))) return;
     guard(part.panel, () => {
       const r = part.draw(st, p, c, keys);
-      if (r && r.empty && !r.action) r.action = widen;
+      if (r && r.empty && !r.action && narrowed) r.action = widen(part.panel);
       return r;
     }, () => draw(store.get(), null));
   });
@@ -58,7 +65,7 @@ function start(json) {
   model = buildModel(json);
   store.readUrl(model.tickers, model.minYear, model.maxYear);
   Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
-  Chart.defaults.font.size = 11;
+  Chart.defaults.font.size = 12;
 
   renderHeadline(model);
   initFilters(model);
@@ -114,7 +121,7 @@ function load() {
     .catch((err) => {
       if (window.console) console.error(err);
       const msg = "The data did not load (" + (err && err.message ? err.message : "unknown error") + "). Nothing on this page is shown from stale data.";
-      PANELS.forEach((id) => setPanelState(id, "error", { msg: "Waiting for the data." }));
+      PANELS.forEach((id) => setPanelState(id, "error", { msg: "Waiting for the data.", quiet: true }));
       pageState("error", msg, () => { if (model) location.reload(); else load(); });
       document.documentElement.classList.add("ready");
     });

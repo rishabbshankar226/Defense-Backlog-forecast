@@ -4,7 +4,7 @@
    bar, and the table beside the chart foots at the precision it shows. */
 
 import { $, el } from "../dom.js";
-import { usdB, usdM, signedB, signedM, usdCents, cents, rate } from "../format.js";
+import { usdB, usdM, signedB, signedM, usdCents, cents, pct, pp } from "../format.js";
 import { COMPANY } from "../copy.js";
 import { inPeriod } from "../model.js";
 import { baseOptions, upsert, describe } from "./base.js";
@@ -20,6 +20,14 @@ function driver(bk, cv) {
   return x > y
     ? "The bigger driver was a " + (bk >= 0 ? "larger" : "smaller") + " starting backlog. "
     : "The bigger driver was turning " + (cv >= 0 ? "more" : "less") + " of the backlog into revenue. ";
+}
+
+// Conversion to one decimal, or two where one would print both years alike, so the sentence
+// never calls conversion unchanged beside a conversion effect the chart shows.
+function conversion(c0, c1) {
+  const dp = pct(c0 * 100) === pct(c1 * 100) ? 2 : 1;
+  const a = pct(c0 * 100, dp), b = pct(c1 * 100, dp);
+  return a === b ? `Conversion held at ${b} of starting backlog.` : `Conversion went from ${a} to ${b} of starting backlog.`;
 }
 
 // The width of the widest word in the chart's tick font, measured once on a spare canvas.
@@ -70,6 +78,7 @@ export function renderBridge(model, st, c, period) {
   if (!rows.length) {
     renderYears([], null);
     $("bridge-table").textContent = "";
+    $("bridge-drivers").textContent = "";
     $("bridge-cap").textContent = "";
     return { empty: `No full calendar years with a bridge for ${COMPANY[t]} in ${period.from}–${period.to}.` };
   }
@@ -93,8 +102,8 @@ export function renderBridge(model, st, c, period) {
   const lo = Math.min(...bars.slice(1, 4).map((b) => Math.min(...b)), k.prior / 100, k.current / 100);
   const hi = Math.max(...bars.slice(1, 4).map((b) => Math.max(...b)), k.prior / 100, k.current / 100);
   const pad = (hi - lo) * 0.6 || hi * 0.05;
-  const opts = baseOptions(c, "US$ billions", "");
-  opts.layout = { padding: { top: 18, right: 6 } };
+  const opts = baseOptions(c, "US$ billions · GAAP", "");
+  opts.layout = { padding: { top: 20, right: 8 } };
   opts.interaction = { mode: "nearest", intersect: true };
   // When the full step names are wider than the space each bar has, they shorten so they
   // don't run together; the tooltip and the table beside the chart keep the full names.
@@ -129,21 +138,22 @@ export function renderBridge(model, st, c, period) {
   }, {
     $colors: c,
     $connectors: true,
+    $breaks: yMin > 0 ? [0, bars.length - 1] : null,
     $values: values.map(fmt),
     $tip: (pts) => {
       const i = pts[0].dataIndex, cts = [k.prior, k.backlog, k.conv, k.overlap, k.current][i];
-      return { rows: [{ color: fills[i], label: labels[i].join(" "), value: fmt(values[i], i), extra: usdCents(cts) }] };
+      const t = kinds[i] === "up" ? "fav" : kinds[i] === "down" ? "unfav" : null;
+      return { rows: [{ color: fills[i], label: labels[i].join(" "), value: fmt(values[i], i), extra: usdCents(cts), extraTone: t }] };
     }
   });
 
   renderBridgeTable(r, year);
+  renderDrivers(r, year);
 
   const change = r.current - r.prior;
   const cap = `${year} revenue ${change >= 0 ? "rose" : "fell"} ${usdB(Math.abs(change))} to ${usdB(r.current)}. ` +
     `Backlog effect ${fmt(steps[0], 1)}, conversion effect ${fmt(steps[1], 2)}, overlap ${fmt(steps[2], 3)}. ` +
-    driver(steps[0], steps[1]) +
-    (rate(r.convPrior) === rate(r.conv) ? `Conversion held at ${rate(r.conv)} of starting backlog.`
-      : `Conversion went from ${rate(r.convPrior)} to ${rate(r.conv)} of starting backlog.`) +
+    driver(steps[0], steps[1]) + conversion(r.convPrior, r.conv) +
     (yMin > 0 ? " The axis starts above zero." : "");
   $("bridge-cap").textContent = cap;
   describe("c-bridge", `${t} revenue bridge for ${year}. ${cap}`);
@@ -176,4 +186,22 @@ function renderBridgeTable(r, year) {
       `<td class="n ${cls !== "total" ? cls : ""}">${cls === "fav" ? "▲ " : cls === "unfav" ? "▼ " : ""}${b}</td></tr>`).join("") +
     `</tbody><tfoot><tr><th scope="row">Check, to the cent</th><td class="n ${diff === 0 ? "ok" : "unfav"}">${diff === 0 ? "✓ " : "✗ "}${usdCents(diff)}</td></tr></tfoot></table>`;
   $("bridge-table").innerHTML = html;
+}
+
+// The levels behind the steps: each year's starting backlog and annual conversion, with the
+// change worked from unrounded figures, so the effects can be followed from their inputs.
+// Shown without colour: the steps they produce carry it. Reconciled in reconcile.js.
+function renderDrivers(r, year) {
+  const db = r.backlogStart - r.backlogStartPrior, dc = (r.conv - r.convPrior) * 100;
+  const row = (label, unit, a, b, d) => `<tr><th scope="row">${label}<span class="unit">${unit}</span></th>` +
+    `<td class="n">${a}</td><td class="n">${b}</td><td class="n">${d}</td></tr>`;
+  $("bridge-drivers").innerHTML = '<table class="mini drivers"><caption>What drove the steps</caption>' +
+    `<thead><tr><th scope="col">Driver</th><th scope="col" class="n">${year - 1}</th><th scope="col" class="n">${year}</th>` +
+    '<th scope="col" class="n">Change</th></tr></thead><tbody>' +
+    row("Backlog at the start of the year", "US$B, prior Q4 (GAAP)", usdB(r.backlogStartPrior), usdB(r.backlogStart),
+      Math.abs(db) < 5e7 ? signedM(db, 1) : signedB(db)) +
+    row("Annual conversion rate", "year's revenue ÷ starting backlog", pct(r.convPrior * 100, 2), pct(r.conv * 100, 2), pp(dc, 2)) +
+    `</tbody></table><p class="note">Backlog effect = change in starting backlog × ${year - 1} conversion. ` +
+    `Conversion effect = ${year - 1} starting backlog × change in conversion. Overlap = the two changes multiplied. ` +
+    "Changes are worked from unrounded figures.</p>";
 }

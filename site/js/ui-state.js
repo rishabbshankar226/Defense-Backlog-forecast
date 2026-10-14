@@ -15,7 +15,8 @@ const MESSAGES = {
 /**
  * @param {string|Element} panel  the panel or its id
  * @param {"loading"|"empty"|"error"|"ready"} kind
- * @param {{msg?: string, action?: {label: string, run: Function}}} opts
+ * @param {{msg?: string, action?: {label: string, run: Function}, quiet?: boolean}} opts
+ *   quiet: an error the page already announces, so the panel's message is not an alert too
  */
 export function setPanelState(panel, kind, opts = {}) {
   const p = typeof panel === "string" ? $(panel) : panel;
@@ -30,7 +31,10 @@ export function setPanelState(panel, kind, opts = {}) {
   box.textContent = "";
   box.removeAttribute("role");
   if (kind === "ready") return;
-  box.setAttribute("role", kind === "error" ? "alert" : "status");
+  box.setAttribute("role", kind === "error" && !opts.quiet ? "alert" : "status");
+  // The message sits under the panel's heading, however many lines that heading wraps to.
+  const head = p.querySelector(":scope > .p-head");
+  box.style.top = head ? head.offsetTop + head.offsetHeight + 8 + "px" : "";
   box.appendChild(el("p", "state-msg", opts.msg || MESSAGES[kind]));
   if (opts.action) {
     const b = el("button", "btn", opts.action.label);
@@ -47,9 +51,10 @@ export function guard(panel, render, retry) {
     if (result && result.empty) setPanelState(panel, "empty", { msg: result.empty, action: result.action });
     else setPanelState(panel, "ready");
   } catch (err) {
-    if (window.console) console.error(err);
+    // The reader gets a plain message; the detail goes to the console.
+    if (window.console) console.error("Panel " + (typeof panel === "string" ? panel : panel.id) + " failed:", err);
     setPanelState(panel, "error", {
-      msg: "This panel could not be drawn: " + (err && err.message ? err.message : "unknown error") + ".",
+      msg: "This panel could not be drawn. The rest of the page is unaffected.",
       action: retry ? { label: "Try again", run: retry } : null
     });
   }

@@ -6,7 +6,7 @@
 <title>Does backlog predict revenue? Five defense primes</title>
 <meta name="description" content="A backtest of backlog-driven revenue forecasts for five U.S. defense primes, built from SEC filings.">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Does backlog predict revenue? Five defense primes">
@@ -27,27 +27,31 @@
 <a class="skip" href="#summary">Skip to the summary</a>
 <noscript><p class="noscript">This page draws its charts with JavaScript, which is turned off. The results are also written out in the <a href="https://github.com/rishabbshankar226/defense-backlog-forecast#results">README</a>.</p></noscript>
 
-<!-- Title and source at left, the global filters at right. Sticky. -->
+<!-- The report's title, basis, period and date at left, the global filters at right. Sticky. -->
 <header class="top">
   <div class="wrap top-in">
     <div class="brand">
       <h1>Does backlog predict revenue? <span class="h1-sub">Five U.S. defense primes</span></h1>
       <p class="meta">
-        <span id="asof">Data as of the data date</span>
+        <span>Basis <strong>US GAAP, as first reported</strong></span>
         <span aria-hidden="true">·</span>
-        <span>SEC EDGAR XBRL, as first reported</span>
+        <span>Source <strong>SEC EDGAR XBRL</strong></span>
+        <span aria-hidden="true">·</span>
+        <span>Period <strong id="hdr-period"><span class="stand-in" aria-hidden="true">####–####</span></strong></span>
+        <span aria-hidden="true">·</span>
+        <span id="asof">Last updated <span class="stand-in" aria-hidden="true">## October ####</span></span>
         <span aria-hidden="true">·</span>
         <a href="https://github.com/rishabbshankar226/defense-backlog-forecast">GitHub</a>
       </p>
     </div>
     <div class="filters" role="group" aria-label="Filters for the whole page">
       <div class="f">
-        <span class="f-label" id="f-company-label">Company <span class="f-name" id="f-name"></span></span>
-        <div class="seg" id="f-company" aria-labelledby="f-company-label"></div>
+        <span class="f-label" id="f-company-label">Company <span class="f-name" id="f-name"><span class="stand-in" aria-hidden="true">Lockheed Martin</span></span></span>
+        <div class="seg" id="f-company" aria-labelledby="f-company-label"><span class="stand-in" aria-hidden="true"><span>HII</span><span>LHX</span><span>LMT</span><span>NOC</span><span>RTX</span></span></div>
       </div>
       <div class="f">
         <span class="f-label" id="f-view-label">Forecast horizon</span>
-        <div class="seg" id="f-view" aria-labelledby="f-view-label"></div>
+        <div class="seg" id="f-view" aria-labelledby="f-view-label"><span class="stand-in" aria-hidden="true"><span>Next quarter</span><span>Next # quarters</span></span></div>
       </div>
       <div class="f">
         <span class="f-label" id="f-period-label">Period <span class="dim">(year)</span></span>
@@ -57,8 +61,11 @@
           <span aria-hidden="true">to</span>
           <label class="sr-only" for="f-to">To year</label>
           <select id="f-to"></select>
-          <button type="button" class="link" id="f-reset" hidden>All years</button>
         </div>
+      </div>
+      <div class="f f-active">
+        <span class="f-count" id="f-count"><span class="stand-in" aria-hidden="true">Default view</span></span>
+        <button type="button" class="btn ghost" id="f-reset">Reset</button>
       </div>
       <div class="f f-tools">
         <button type="button" class="btn ghost" id="keys-open" aria-haspopup="dialog">Shortcuts</button>
@@ -70,41 +77,59 @@
 
 <div class="wrap"><div class="page-state" id="page-state" role="status">Loading the data…</div></div>
 
+<!-- Until data.json arrives, every slot it fills, here and in the header, holds a hidden .stand-in:
+     the text or table that will replace it, as the default view shows it, with # for each digit.
+     So each slot starts at its final size, and nothing moves when the script fills it. -->
 <main id="main" class="wrap">
 
-  <!-- The finding and the KPIs, each against its baseline. -->
-  <section class="summary" id="summary" tabindex="-1" aria-labelledby="summary-title">
+  <!-- The overview, on the same two columns as the charts below: the finding beside the pooled
+       KPIs, then the scorecard that breaks them down by company beside the selected company's KPIs. -->
+  <section class="summary" id="summary" tabindex="-1" aria-labelledby="summary-h">
+    <h2 class="sr-only" id="summary-h">Summary</h2>
     <div class="finding">
-      <h2 class="eyebrow" id="summary-title">Finding · full sample, next four quarters</h2>
-      <p class="lede" id="headline">Loading the results.</p>
-      <p class="bottom-line" id="bottom-line"></p>
+      <h3 class="eyebrow" id="summary-title">Finding · full sample, next four quarters</h3>
+      <p class="lede" id="headline"><span class="stand-in" aria-hidden="true">Over the next four quarters, repeating the last four quarters' revenue missed actual revenue by <strong class="num">#.#%</strong> on average, the lowest of three models, while the backlog model missed by <strong class="num">#.#%</strong>.</span><span class="over">Loading the results.</span></p>
+      <p class="bottom-line" id="bottom-line"><span class="stand-in" aria-hidden="true">In short: across the five companies taken together, last year's revenue was a better guide to the next year's than backlog. RTX was the exception.</span></p>
       <p class="key-note">Green ▲▼ marks a favourable variance and red an unfavourable one, against the comparison printed beside it. Series colours are never red or green.
         <button type="button" class="info" data-help="colour" aria-expanded="false" aria-controls="def"></button></p>
     </div>
     <div class="kpis" id="kpis" data-state="loading">
-      <div class="kpi-group">
-        <h3 class="eyebrow" id="kpis-pool-title">All five companies</h3>
-        <div class="kpi-row" id="kpis-pool"><div class="kpi sk"></div><div class="kpi sk"></div><div class="kpi sk"></div><div class="kpi sk"></div></div>
+      <div class="p-head kpi-title"><h3 class="eyebrow" id="kpis-pool-title" tabindex="-1">All five companies<span class="stand-in" aria-hidden="true"> · Next four quarters · forecast targets ####–####</span></h3></div>
+      <div class="kpi-row pool" id="kpis-pool"><div class="kpi sk"><span class="sk-bar"></span><span class="sk-bar"></span><span class="sk-bar"></span><div class="stand-in" aria-hidden="true"><div class="kpi-head"><h4 class="kpi-label">Backlog-model forecast miss</h4><span class="info"></span></div><p class="kpi-unit"><span class="tag">Model · %</span> MAPE, % of actual GAAP revenue · ## forecasts</p><p class="kpi-val">#.#%</p><div class="kpi-foot"><p class="kpi-delta"><span class="nw"><span class="glyph">▲</span>+#.# pp</span><span class="sep">·</span><span class="nw">+##.#% worse</span></p><p class="kpi-cmp">vs. #.#% Trailing #Q</p></div></div></div><div class="kpi sk"><span class="sk-bar"></span><span class="sk-bar"></span><span class="sk-bar"></span><div class="stand-in" aria-hidden="true"><div class="kpi-head"><h4 class="kpi-label">Win rate vs Trailing #Q</h4><span class="info"></span></div><p class="kpi-unit"><span class="tag">Model · %</span> % of forecasts · ## of ## closer</p><p class="kpi-val">##.#%</p><div class="kpi-foot"><p class="kpi-delta"><span class="nw"><span class="glyph">▼</span>−##.# pp</span></p><p class="kpi-cmp">vs. ##.#% coin flip</p></div></div></div><div class="kpi sk"><span class="sk-bar"></span><span class="sk-bar"></span><span class="sk-bar"></span><div class="stand-in" aria-hidden="true"><div class="kpi-head"><h4 class="kpi-label">Backlog-model bias</h4><span class="info"></span></div><p class="kpi-unit"><span class="tag">Model · %</span> Mean signed error, % of actual · + = too high</p><p class="kpi-val">+#.#%</p><div class="kpi-foot"><p class="kpi-delta"><span class="nw">Over-forecast</span></p><p class="kpi-cmp">vs. −#.#% Trailing #Q</p></div></div></div></div>
+      <div class="state"></div>
+    </div>
+
+    <section class="panel" id="p-score" data-state="loading" aria-labelledby="score-title">
+      <div class="p-head">
+        <h3 id="score-title" tabindex="-1">Scorecard: average forecast miss</h3>
+        <button type="button" class="info" data-help="mape" aria-expanded="false" aria-controls="def"></button>
+        <span class="tag">Model</span>
       </div>
-      <div class="kpi-group">
-        <h3 class="eyebrow" id="kpis-co-title">Selected company</h3>
-        <div class="kpi-row co" id="kpis-co"><div class="kpi sk"></div><div class="kpi sk"></div><div class="kpi sk"></div><div class="kpi sk"></div></div>
+      <p class="note" id="score-note"><span class="stand-in" aria-hidden="true">Mean absolute percentage error of each next four quarters forecast against actual GAAP revenue, targets ####–####. Lower is better; the lowest in each row is bold and underlined. Bars in a column share one scale. A company name picks that company.</span><span class="over">Mean absolute percentage error of each forecast against actual GAAP revenue. Lower is better; the lowest in each row is bold and underlined. Bars in a column share one scale. A company name picks that company.</span></p>
+      <div class="scroll-x" role="region" aria-label="Scorecard table" tabindex="0">
+        <table class="score" id="scorecard"><thead class="stand-in" aria-hidden="true"><tr><th rowspan="2">Company</th><th colspan="3" class="grp">Average miss (MAPE), %</th><th colspan="2" class="grp">Backlog model vs Trailing #Q</th><th rowspan="2" class="n">Forecasts scored<span class="unit">backlog model of Trailing #Q</span></th></tr><tr><th class="n"><span class="sw sw-backlog"></span>Backlog model</th><th class="n"><span class="sw sw-naive"></span>Trailing #Q</th><th class="n"><span class="sw sw-naive_drift"></span>Trailing #Q with drift</th><th class="n var">Δ, pp<span class="unit">lower is better</span></th><th class="n var">Win rate, %<span class="unit">vs ##% coin flip</span></th></tr></thead><tbody class="stand-in" aria-hidden="true"><tr class="all"><th>All five</th><td class="n">#.#%</td><td class="n low">#.#%</td><td class="n">#.#%</td><td class="n var">▲ +#.# pp<span class="vbar"></span></td><td class="n var">▼ ##.#%<span class="vbar"></span></td><td class="n count">## of ##</td></tr><tr><th><span class="co-pick">HII</span></th><td class="n">##.#%</td><td class="n">#.#%</td><td class="n low">#.#%</td><td class="n var">▲ +#.# pp<span class="vbar"></span></td><td class="n var">▼ ##.#%<span class="vbar"></span></td><td class="n count">## of ##</td></tr><tr><th><span class="co-pick">LHX</span></th><td class="n">##.#%</td><td class="n low">#.#%</td><td class="n">#.#%</td><td class="n var">▲ +##.# pp<span class="vbar"></span></td><td class="n var">▼ ##.#%<span class="vbar"></span></td><td class="n count"># of ##</td></tr><tr class="on"><th><span class="co-pick">LMT</span></th><td class="n">#.#%</td><td class="n low">#.#%</td><td class="n">#.#%</td><td class="n var">▲ +#.# pp<span class="vbar"></span></td><td class="n var">▼ ##.#%<span class="vbar"></span></td><td class="n count">## of ##</td></tr><tr><th><span class="co-pick">NOC</span></th><td class="n">#.#%</td><td class="n low">#.#%</td><td class="n">#.#%</td><td class="n var">▲ +#.# pp<span class="vbar"></span></td><td class="n var">▼ ##.#%<span class="vbar"></span></td><td class="n count">## of ##</td></tr><tr><th><span class="co-pick">RTX</span></th><td class="n low">#.#%</td><td class="n">#.#%</td><td class="n">#.#%</td><td class="n var">▼ −#.# pp<span class="vbar"></span></td><td class="n var">▲ ##.#%<span class="vbar"></span></td><td class="n count">## of ##</td></tr></tbody></table>
       </div>
+      <p class="note" id="score-foot"><span class="stand-in" aria-hidden="true">The backlog model needs tagged backlog at the origin, so it scores ## of the ## forecasts Trailing #Q scores. Δ compares each model's average over its own forecasts, as published; on the origins both score it is +#.# pp for all five and +##.# pp for LHX.</span><span class="over">The backlog model needs tagged backlog at the origin, so it can score fewer forecasts than the baselines, which need none.</span></p>
+      <div class="state"></div>
+    </section>
+
+    <div class="kpis" id="kpis-company" data-state="loading">
+      <div class="p-head kpi-title"><h3 class="eyebrow" id="kpis-co-title" tabindex="-1"><span class="stand-in" aria-hidden="true">Lockheed Martin (LMT) · ####Q#, latest quarter in period</span><span class="over">Selected company</span></h3></div>
+      <div class="kpi-row co" id="kpis-co"><div class="kpi sk"><span class="sk-bar"></span><span class="sk-bar"></span><span class="sk-bar"></span><div class="stand-in" aria-hidden="true"><div class="kpi-head"><h4 class="kpi-label">Backlog (RPO)</h4><span class="info"></span></div><p class="kpi-unit"><span class="tag">GAAP · US$B</span> Quarter end, as first reported · QoQ +##.#%</p><p class="kpi-val">$###.#B</p><div class="kpi-foot"><p class="kpi-delta"><span class="nw"><span class="glyph">▲</span>+$##.#B</span><span class="sep">·</span><span class="nw">+##.#% YoY</span></p><p class="kpi-cmp">vs. $###.#B ####Q#, a year earlier</p></div></div></div><div class="kpi sk"><span class="sk-bar"></span><span class="sk-bar"></span><span class="sk-bar"></span><div class="stand-in" aria-hidden="true"><div class="kpi-head"><h4 class="kpi-label">Revenue, trailing four quarters</h4><span class="info"></span></div><p class="kpi-unit"><span class="tag">GAAP · US$B</span> GAAP net sales, as first reported</p><p class="kpi-val">$##.#B</p><div class="kpi-foot"><p class="kpi-delta"><span class="nw"><span class="glyph">▲</span>+$#.#B</span><span class="sep">·</span><span class="nw">+#.#% YoY</span></p><p class="kpi-cmp">vs. $##.#B ####Q#, a year earlier</p></div></div></div><div class="kpi sk"><span class="sk-bar"></span><span class="sk-bar"></span><span class="sk-bar"></span><div class="stand-in" aria-hidden="true"><div class="kpi-head"><h4 class="kpi-label">Backlog coverage</h4><span class="info"></span></div><p class="kpi-unit"><span class="tag">Derived · ×</span> Backlog ÷ trailing four-quarter revenue (years)</p><p class="kpi-val">#.##×</p><div class="kpi-foot"><p class="kpi-delta"><span class="nw"><span class="glyph">▲</span>+#.##×</span><span class="sep">·</span><span class="nw">+##.#% YoY</span></p><p class="kpi-cmp">vs. #.##× ####Q#, a year earlier</p></div></div></div><div class="kpi sk"><span class="sk-bar"></span><span class="sk-bar"></span><span class="sk-bar"></span><div class="stand-in" aria-hidden="true"><div class="kpi-head"><h4 class="kpi-label">LMT backlog-model miss</h4><span class="info"></span></div><p class="kpi-unit"><span class="tag">Model · %</span> MAPE · next four quarters · ## forecasts</p><p class="kpi-val">#.#%</p><div class="kpi-foot"><p class="kpi-delta"><span class="nw"><span class="glyph">▲</span>+#.# pp</span><span class="sep">·</span><span class="nw">+##.#% worse</span></p><p class="kpi-cmp">vs. #.#% Trailing #Q</p></div></div></div></div>
       <div class="state"></div>
     </div>
   </section>
 
-  <!-- The body: core trends, two panels to a row on wide screens. -->
+  <!-- The selected company: trends two to a row on wide screens, then the bridge and the what-if. -->
   <div class="body">
-
 
     <section class="panel fig" id="p-backlog" data-state="loading" aria-labelledby="backlog-title">
       <div class="p-head">
-        <h2 id="backlog-title" tabindex="-1">Backlog and revenue</h2>
+        <h2 id="backlog-title" tabindex="-1">Backlog and revenue <span class="co-tag" data-co><span class="stand-in" aria-hidden="true">LMT</span></span></h2>
         <span class="tag">GAAP</span>
       </div>
-      <p class="note" id="backlog-note">US$ billions at each quarter end.</p>
-      <div class="legend" id="lg-backlog" role="group" aria-label="Lines shown in the backlog chart"></div>
+      <p class="note" id="backlog-note">US$ billions at each quarter end. Backlog is remaining performance obligations; revenue is the GAAP total over the trailing four quarters.</p>
+      <div class="legend" id="lg-backlog" role="group" aria-label="Lines shown in the backlog chart"><span class="stand-in" aria-hidden="true"><span class="key"><span class="chip"><span class="chip-sw"></span>Backlog (RPO), quarter end<span class="tag">GAAP</span></span><span class="info"></span></span><span class="key"><span class="chip"><span class="chip-sw"></span>Revenue, trailing four quarters<span class="tag">GAAP</span></span><span class="info"></span></span></span></div>
       <div class="chart h-main"><canvas id="c-backlog" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Backlog and revenue chart"></canvas></div>
       <div class="sub-head">
         <h3 class="sub">Implied book-to-bill, each quarter <span class="tag">Derived</span></h3>
@@ -117,11 +142,11 @@
 
     <section class="panel fig" id="p-fc" data-state="loading" aria-labelledby="fc-title">
       <div class="p-head">
-        <h2 id="fc-title" tabindex="-1">Forecast against actual</h2>
+        <h2 id="fc-title" tabindex="-1">Forecast against actual <span class="co-tag" data-co><span class="stand-in" aria-hidden="true">LMT</span></span></h2>
         <span class="tag">Model vs GAAP</span>
       </div>
-      <p class="note" id="fc-note">Each point is a forecast made with what was known at its origin.</p>
-      <div class="legend" id="lg-fc" role="group" aria-label="Lines shown in the forecast chart"></div>
+      <p class="note" id="fc-note">US$ billions. Each point is one forecast of the next four quarters' revenue, made with only what was known then, plotted at the last of those quarters.</p>
+      <div class="legend" id="lg-fc" role="group" aria-label="Lines shown in the forecast chart"><span class="stand-in" aria-hidden="true"><span class="key"><span class="chip"><span class="chip-sw"></span>Actual (GAAP)<span class="tag">GAAP</span></span></span><span class="key"><span class="chip"><span class="chip-sw"></span>Backlog model<span class="tag">Model</span></span><span class="info"></span></span><span class="key"><span class="chip"><span class="chip-sw"></span>Trailing #Q<span class="tag">Model</span></span><span class="info"></span></span><span class="key"><span class="chip"><span class="chip-sw"></span>Trailing #Q with drift<span class="tag">Model</span></span><span class="info"></span></span></span></div>
       <div class="chart h-main"><canvas id="c-fc" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Forecast against actual chart"></canvas></div>
       <div class="replay" id="replay">
         <div class="replay-ctl">
@@ -129,46 +154,34 @@
           <label class="sr-only" for="scrub">Forecasts shown, in order</label>
           <input type="range" class="range" id="scrub">
         </div>
-        <div class="replay-out" id="replay-out" aria-live="polite"></div>
+        <div class="replay-out" id="replay-out" aria-live="polite"><div class="stand-in" aria-hidden="true"><div class="ro-title">Average miss (MAPE), every forecast shown</div><div class="ro-row"><span class="ro-sw"></span><span class="ro-name">Backlog model</span><span class="ro-val">#.#%</span></div><div class="ro-row best"><span class="ro-sw"></span><span class="ro-name">Trailing #Q</span><span class="ro-val">#.#%</span></div><div class="ro-row"><span class="ro-sw"></span><span class="ro-name">Trailing #Q with drift</span><span class="ro-val">#.#%</span></div></div></div>
       </div>
-      <p class="caption" id="miss"></p>
-      <div class="state"></div>
-    </section>
-
-    <section class="panel" id="p-score" data-state="loading" aria-labelledby="score-title">
-      <div class="p-head">
-        <h2 id="score-title" tabindex="-1">Scorecard: average forecast miss</h2>
-        <button type="button" class="info" data-help="mape" aria-expanded="false" aria-controls="def"></button>
-        <span class="tag">Model</span>
-      </div>
-      <p class="note" id="score-note">Mean absolute percentage error against actual GAAP revenue. Lower is better.</p>
-      <div class="scroll-x" role="region" aria-label="Scorecard table" tabindex="0">
-        <table class="score" id="scorecard"></table>
-      </div>
+      <p class="caption" id="miss"><span class="stand-in" aria-hidden="true">Largest backlog-model miss: the four quarters to ####Q#, ##.#% off (forecast $##.#B, actual $##.#B).</span></p>
       <div class="state"></div>
     </section>
 
     <section class="panel fig" id="p-bridge" data-state="loading" aria-labelledby="bridge-title">
       <div class="p-head">
-        <h2 id="bridge-title" tabindex="-1">What moved revenue</h2>
+        <h2 id="bridge-title" tabindex="-1">What moved revenue <span class="co-tag" data-co><span class="stand-in" aria-hidden="true">LMT</span></span></h2>
         <button type="button" class="info" data-help="bridge" aria-expanded="false" aria-controls="def"></button>
         <span class="tag">Derived from GAAP</span>
-        <div class="seg years" role="group" aria-label="Year" id="years"></div>
+        <div class="seg years" role="group" aria-label="Year" id="years"><span class="stand-in" aria-hidden="true"><span>####</span><span>####</span><span>####</span><span>####</span><span>####</span><span>####</span></span></div>
       </div>
       <p class="note">How a calendar year's GAAP revenue got from the year before's: the effect of a bigger or smaller starting backlog, the effect of turning more or less of it into revenue, and the overlap of the two.</p>
       <div class="bridge-body">
         <div class="chart h-main"><canvas id="c-bridge" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Revenue bridge chart"></canvas></div>
-        <div class="bridge-table" id="bridge-table"></div>
+        <div class="bridge-table" id="bridge-table"><table class="mini stand-in" aria-hidden="true"><thead><tr><th>Step</th><th class="n">US$M</th></tr></thead><tbody><tr><th>#### revenue (GAAP)</th><td class="n">$##,###.#M</td></tr><tr><th>Backlog effect</th><td class="n">▲ +$#,###.#M</td></tr><tr><th>Conversion effect</th><td class="n">▼ −$#,###.#M</td></tr><tr><th>Overlap</th><td class="n">▼ −$###.#M</td></tr><tr class="total"><th>#### revenue (GAAP)</th><td class="n">$##,###.#M</td></tr></tbody><tfoot><tr><th>Check, to the cent</th><td class="n">✓ $#.##</td></tr></tfoot></table></div>
+        <div class="bridge-drivers" id="bridge-drivers"><div class="stand-in" aria-hidden="true"><table class="mini drivers"><caption>What drove the steps</caption><thead><tr><th>Driver</th><th class="n">####</th><th class="n">####</th><th class="n">Change</th></tr></thead><tbody><tr><th>Backlog at the start of the year<span class="unit">US$B, prior Q# (GAAP)</span></th><td class="n">$###.#B</td><td class="n">$###.#B</td><td class="n">+$##.#B</td></tr><tr><th>Annual conversion rate<span class="unit">year's revenue ÷ starting backlog</span></th><td class="n">##.##%</td><td class="n">##.##%</td><td class="n">−#.## pp</td></tr></tbody></table><p class="note">Backlog effect = change in starting backlog × #### conversion. Conversion effect = #### starting backlog × change in conversion. Overlap = the two changes multiplied. Changes are worked from unrounded figures.</p></div></div>
       </div>
-      <p class="caption" id="bridge-cap"></p>
+      <p class="caption" id="bridge-cap"><span class="stand-in" aria-hidden="true">#### revenue rose $#.#B to $##.#B. Backlog effect +$#.#B, conversion effect −$#.#B, overlap −$#.#B. The bigger driver was a larger starting backlog. Conversion went from ##.#% to ##.#% of starting backlog. The axis starts above zero.</span></p>
       <div class="state"></div>
     </section>
 
     <section class="panel whatif" id="p-whatif" data-state="loading" aria-labelledby="whatif-title">
       <div class="p-head">
-        <h2 id="whatif-title" tabindex="-1">What if</h2>
+        <h2 id="whatif-title" tabindex="-1">What if <span class="co-tag" data-co><span class="stand-in" aria-hidden="true">LMT</span></span></h2>
         <span class="tag">Model scenario</span>
-        <span class="note inline" id="whatif-from"></span>
+        <span class="note inline" id="whatif-from"><span class="stand-in" aria-hidden="true">From ####Q#, the latest quarter, for ####Q#–####Q#. The period filter does not apply here.</span></span>
       </div>
       <p class="note">A scenario, not a prediction. Start from today's backlog and its typical conversion rate, nudge either one, and see the revenue it implies for the next four quarters. Shown without red or green: a scenario is not a variance.</p>
       <div class="whatif-grid">
@@ -198,9 +211,10 @@
               <h3 class="eyebrow" id="fwd-title">Scenario revenue, next four quarters</h3>
               <button type="button" class="btn ghost" id="reset" aria-label="Reset to no change in backlog or conversion rate">Reset</button>
             </div>
-            <p class="big-num"><span id="fwd"></span> <span class="big-m" id="fwd-m"></span></p>
-            <p class="big-delta" id="fwd-delta"></p>
-            <p class="big-context" id="fwd-context"></p>
+            <p class="big-num"><span id="fwd"><span class="stand-in" aria-hidden="true">$###.#B</span></span> <span class="big-m" id="fwd-m"><span class="stand-in" aria-hidden="true">$###,###M</span></span></p>
+            <p class="big-delta" id="fwd-delta"><span class="stand-in" aria-hidden="true">Today's backlog at its typical conversion rate</span></p>
+            <p class="big-inputs"><span id="fwd-inputs"><span class="stand-in" aria-hidden="true"><span class="nw">Backlog $###.#B</span> · <span class="nw">four-quarter conversion ##.#%</span></span></span> <button type="button" class="info" data-help="conv4" aria-expanded="false" aria-controls="def"></button></p>
+            <p class="big-context" id="fwd-context"><span class="stand-in" aria-hidden="true">Trailing four-quarter revenue to ####Q# was $##.#B, so the no-change scenario sits ##.#% above it. In the backtest, the backlog model's four-quarter forecasts for LMT ran #.#% high on average.</span></p>
           </div>
           <div class="grid-wrap" id="grid-wrap">
             <table class="grid" id="grid">
@@ -210,6 +224,12 @@
         </div>
         <div class="fan">
           <h3 class="sub" id="fan-title">Every scenario against recent revenue</h3>
+          <ul class="fan-key">
+            <li><span class="sw sw-actual" aria-hidden="true"></span>Revenue, trailing four quarters <span class="tag">GAAP</span></li>
+            <li><span class="sw sw-base" aria-hidden="true"></span>No change <span class="tag">Model</span></li>
+            <li><span class="sw sw-backlog" aria-hidden="true"></span>Selected scenario <span class="tag">Model</span></li>
+            <li><span class="sw sw-other" aria-hidden="true"></span>Other scenarios <span class="tag">Model</span></li>
+          </ul>
           <div class="chart h-main"><canvas id="c-fan" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Scenario fan chart"></canvas></div>
           <p class="caption">The shaded span is the next four quarters. Each line joins the latest trailing revenue to one scenario's total; it is not a quarter-by-quarter path.</p>
         </div>
@@ -245,12 +265,12 @@
       <label class="ctl-inline grow">Search
         <input type="search" id="t-search" placeholder="Ticker, quarter, model or accession" autocomplete="off">
       </label>
-      <output class="count" id="t-count" for="t-search t-scope"></output>
+      <output class="count" id="t-count" for="t-search t-scope"><span class="stand-in" aria-hidden="true">Showing ## of ## rows</span></output>
       <button type="button" class="btn" id="t-export">Export CSV</button>
     </div>
     <!-- The caption is shown here, outside the sideways scroll, so it wraps to the box's width.
          The table keeps its own <caption> for screen readers; this copy is hidden from them. -->
-    <p class="tbl-caption" id="t-caption" aria-hidden="true"></p>
+    <p class="tbl-caption" id="t-caption" aria-hidden="true"><span class="stand-in">Quarterly fundamentals: backlog and revenue as first reported, US$ millions · Lockheed Martin (LMT), ####–####</span></p>
     <div class="tbl-scroll" id="tbl" role="tabpanel" aria-labelledby="tt-quarters" tabindex="0">
       <table class="data" id="data"><caption class="sr-only"></caption><thead></thead><tbody></tbody><tfoot></tfoot></table>
     </div>
@@ -259,7 +279,7 @@
       <div class="recon-head">
         <h3 class="sub">Reconciliation</h3>
         <button type="button" class="info" data-help="recon" aria-expanded="false" aria-controls="def"></button>
-        <p id="recon-sum" class="recon-sum"></p>
+        <p id="recon-sum" class="recon-sum"><span class="stand-in" aria-hidden="true">✓ # of # checks pass · max difference $#.## · Lockheed Martin (LMT), ####–####</span></p>
       </div>
       <details>
         <summary>Show each check</summary>
