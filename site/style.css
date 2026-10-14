@@ -1,0 +1,144 @@
+:root {
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --ink: #1c1c1c;
+  --muted: #5d5b56;
+  --line: #e2dfd8;
+  --grid: #ece9e3;
+  --accent: #b4451f;
+  --accent-soft: rgba(180, 69, 31, 0.12);
+  --naive: #a9a9a9;
+  --drift: #6b6b6b;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #151514;
+    --surface: #1c1c1a;
+    --ink: #ecebe7;
+    --muted: #a6a39c;
+    --line: #34332f;
+    --grid: #2a2926;
+    --accent: #e0703f;
+    --accent-soft: rgba(224, 112, 63, 0.16);
+    --naive: #6f6f6f;
+    --drift: #a8a8a8;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  overflow-x: hidden;
+}
+
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+
+.head { padding-top: 32px; padding-bottom: 8px; }
+h1 { font-size: 30px; line-height: 1.2; margin: 0 0 10px; letter-spacing: -0.01em; }
+.lede { font-size: 18px; margin: 0 0 10px; max-width: 70ch; }
+.meta { color: var(--muted); font-size: 14px; margin: 0; }
+.meta .dot { margin: 0 6px; }
+
+h2 { font-size: 18px; margin: 0; }
+.eyebrow { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 20px 0 10px; }
+
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+.tile .name { font-size: 14px; color: var(--muted); }
+.tile .val { font-size: 32px; font-weight: 650; line-height: 1.15; margin-top: 4px; }
+.tile .sub { font-size: 13px; color: var(--muted); }
+.tile.best { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tile.best .val { color: var(--accent); }
+.tile .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+
+.tabs { display: flex; gap: 6px; margin: 24px 0 14px; overflow-x: auto; white-space: nowrap; padding-bottom: 2px; scrollbar-width: thin; }
+.tabs button {
+  font: inherit; font-weight: 600; font-size: 15px;
+  padding: 7px 16px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  flex: 0 0 auto;
+}
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.panels { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; }
+.panels > .panel { grid-column: span 6; }
+.panels > .panel.bridge { grid-column: span 5; }
+.panels > .panel.wide { grid-column: span 7; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; min-width: 0; }
+.panel .note { color: var(--muted); font-size: 14px; margin: 4px 0 10px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.chart { position: relative; height: 300px; }
+.caption { font-size: 14px; margin: 8px 0 0; color: var(--ink); }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: inherit; font-size: 13px; padding: 5px 10px; border: 0; background: var(--surface); color: var(--ink); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+.pick { font-size: 14px; color: var(--muted); }
+.pick select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; margin-left: 4px; }
+
+.whatif { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr); gap: 16px; align-items: start; }
+.controls label { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; margin-top: 6px; }
+.controls output { font-weight: 600; color: var(--accent); }
+.controls input[type="range"] { width: 100%; accent-color: var(--accent); margin: 6px 0 0; }
+.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.big { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.big-label { font-size: 13px; color: var(--muted); }
+.big-num { font-size: 38px; font-weight: 650; line-height: 1.1; }
+.big-delta { font-size: 14px; color: var(--muted); }
+
+.grid-wrap { min-width: 0; }
+.grid { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: 13px; table-layout: fixed; }
+.grid caption { caption-side: top; text-align: left; font-size: 13px; color: var(--muted); padding-bottom: 4px; }
+.grid th { font-weight: 600; color: var(--muted); font-size: 12px; padding: 2px; text-align: center; white-space: nowrap; }
+.grid thead th:first-child { width: 3.6em; }
+.grid td { padding: 0; }
+.grid td button {
+  width: 100%; font: inherit; font-size: 12px; padding: 8px 0; white-space: nowrap; overflow: hidden; cursor: pointer;
+  border: 1px solid transparent; border-radius: 4px; color: var(--ink);
+}
+.grid td button.on { border: 2px solid var(--ink); font-weight: 700; }
+
+.method ol { margin: 8px 0; padding-left: 20px; }
+.method li { margin: 4px 0; max-width: 90ch; }
+.panel.method { margin-top: 14px; }
+
+.foot { color: var(--muted); font-size: 13px; padding-top: 18px; padding-bottom: 32px; }
+
+@media (max-width: 900px) {
+  .panels > .panel, .panels > .panel.bridge, .panels > .panel.wide { grid-column: 1 / -1; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .whatif { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 520px) {
+  h1 { font-size: 23px; }
+  .lede { font-size: 16px; }
+  .tile .val { font-size: 26px; }
+  .chart { height: 260px; }
+  .big-num { font-size: 32px; }
+  .grid td button { font-size: 10.5px; padding: 7px 0; letter-spacing: -0.02em; }
+  .grid { border-spacing: 2px; }
+  .grid th { font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; }
+}

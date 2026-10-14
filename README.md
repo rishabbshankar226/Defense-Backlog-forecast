@@ -1,5 +1,9 @@
 # Does backlog predict revenue? Five defense primes, 2018 to 2026
 
+[Open the interactive dashboard](https://rishabbshankar226.github.io/defense-backlog-forecast/): pick a company, compare each model's forecasts with what happened, take apart a year's revenue change, and stress next year's revenue.
+
+[![The dashboard, showing Lockheed Martin](output/charts/dashboard.png)](https://rishabbshankar226.github.io/defense-backlog-forecast/)
+
 I tested whether the backlog that HII, LHX, LMT, NOC and RTX report at quarter end forecasts their next quarters of revenue better than last year's revenue does, using only what their SEC filings showed at the time.
 
 ## Results

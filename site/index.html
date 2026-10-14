@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Does backlog predict revenue? Five defense primes</title>
+<meta name="description" content="A backtest of backlog-driven revenue forecasts for five U.S. defense primes, built from SEC filings.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="wrap head">
+  <h1>Does backlog predict revenue? Five defense primes, 2018 to 2026</h1>
+  <p class="lede" id="headline">Loading the results.</p>
+  <p class="meta">
+    <span id="asof">As of the data date</span>
+    <span class="dot" aria-hidden="true">·</span>
+    <span>Source: SEC EDGAR XBRL, as first reported in each quarterly or annual filing</span>
+    <span class="dot" aria-hidden="true">·</span>
+    <a href="https://github.com/rishabbshankar226/defense-backlog-forecast">GitHub repository</a>
+    <span class="dot" aria-hidden="true">·</span>
+    <a href="https://rshankar.dev">rshankar.dev</a>
+  </p>
+</header>
+
+<main class="wrap">
+  <section aria-labelledby="score-title" class="score">
+    <h2 id="score-title" class="eyebrow">Pooled forecast error over the next four quarters, all five companies</h2>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <div class="tabs" role="tablist" aria-label="Company" id="tabs"></div>
+
+  <div class="panels" id="company" role="tabpanel" aria-labelledby="tabs">
+    <section class="panel" aria-labelledby="backlog-title">
+      <h2 id="backlog-title">Backlog and revenue</h2>
+      <p class="note" id="backlog-note">Backlog at each quarter end against revenue over the trailing four quarters.</p>
+      <div class="chart"><canvas id="c-backlog" role="img" aria-label="Backlog and revenue chart"></canvas></div>
+    </section>
+
+    <section class="panel" aria-labelledby="fc-title">
+      <div class="row">
+        <h2 id="fc-title">Forecast against actual</h2>
+        <div class="seg" role="group" aria-label="Forecast horizon">
+          <button type="button" data-view="h1" aria-pressed="true">Next quarter</button>
+          <button type="button" data-view="h4" aria-pressed="false">Next four quarters</button>
+        </div>
+      </div>
+      <p class="note" id="fc-note">Each point is a forecast made with what was known at its origin, plotted at the quarter it forecast.</p>
+      <div class="chart"><canvas id="c-fc" role="img" aria-label="Forecast against actual chart"></canvas></div>
+      <p class="caption" id="miss"></p>
+    </section>
+
+    <section class="panel bridge" aria-labelledby="bridge-title">
+      <div class="row">
+        <h2 id="bridge-title">What moved revenue</h2>
+        <label class="pick">Year <select id="year"></select></label>
+      </div>
+      <p class="note">Last year's revenue, the change from starting backlog, the change from the conversion rate, their interaction, and this year's revenue.</p>
+      <div class="chart"><canvas id="c-bridge" role="img" aria-label="Revenue bridge chart"></canvas></div>
+      <p class="caption" id="bridge-cap"></p>
+    </section>
+
+    <section class="panel wide" aria-labelledby="whatif-title">
+      <h2 id="whatif-title">What if</h2>
+      <p class="note">A scenario, not a prediction. Move backlog and the four-quarter conversion rate away from where they stand at the latest quarter and read the revenue they imply for the next four quarters.</p>
+      <div class="whatif">
+        <div class="controls">
+          <label for="shock">Backlog shock <output id="shock-out" for="shock"></output></label>
+          <input type="range" id="shock">
+          <div class="ticks" id="shock-ticks" aria-hidden="true"></div>
+          <label for="shift">Conversion shift <output id="shift-out" for="shift"></output></label>
+          <input type="range" id="shift">
+          <div class="ticks" id="shift-ticks" aria-hidden="true"></div>
+          <div class="big">
+            <div class="big-label">Scenario revenue, next four quarters</div>
+            <div class="big-num" id="fwd"></div>
+            <div class="big-delta" id="fwd-delta"></div>
+          </div>
+        </div>
+        <div class="grid-wrap">
+          <table class="grid" id="grid">
+            <caption>Every scenario: backlog shock down the side, conversion shift across the top</caption>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel method" aria-labelledby="method-title">
+    <h2 id="method-title">Method</h2>
+    <ol>
+      <li>Backlog is each company's remaining performance obligations, taken as first reported in its quarterly or annual filing.</li>
+      <li>The backlog model multiplies backlog by the rate at which past backlog turned into revenue.</li>
+      <li>The baselines repeat last year's revenue: the same quarter for the next quarter, the trailing four quarters for the next four, each with and without trailing growth.</li>
+      <li>Every forecast uses only figures known at its origin quarter and is scored by its absolute percentage error.</li>
+      <li>The design was fixed in writing before any result existed.</li>
+    </ol>
+    <p><a href="https://github.com/rishabbshankar226/defense-backlog-forecast#limitations">Read the limitations in the README</a></p>
+  </section>
+</main>
+
+<footer class="wrap foot">Built by Rishabb Shankar, <a href="https://rshankar.dev">rshankar.dev</a>. Every figure on this page is read from data.json at load.</footer>
+
+<script src="vendor/chart.umd.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

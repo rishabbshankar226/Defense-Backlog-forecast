@@ -147,7 +147,7 @@ def bridge_rows(ticker, s) -> list[dict]:
             "backlog_start_prior_usd": b0, "backlog_start_usd": b1,
             "conversion_prior": c0, "conversion": c1,
             "backlog_effect_usd": be, "conversion_effect_usd": ce, "interaction_usd": ie,
-            "residual_usd": (r1 - r0) - be - ce - ie,
+            "residual_usd": (r1 - r0) - (be + ce + ie),
         })
     return rows
 

@@ -1,13 +1,16 @@
 """Build output/defense_backlog_model.xlsx with live formulas, in $M."""
 
 import csv
+import re
+import zipfile
+from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 
 from dbf import model
-from dbf.config import OUTPUT, PROCESSED, SOURCE_LINE, TICKERS
+from dbf.config import AS_OF, OUTPUT, PROCESSED, SOURCE_LINE, TICKERS
 
 LABELS = [
     "Backlog (RPO)", "Revenue", "Implied bookings", "Book-to-bill", "Conversion 1Q",
@@ -146,7 +149,7 @@ def bridge_sheet(wb, data):
                 f"={sh}{ref('Backlog (RPO)', idx[f'{y - 1}Q4'])}",
                 f"=C{r}/E{r}", f"=D{r}/F{r}",
                 f"=(F{r}-E{r})*G{r}", f"=E{r}*(H{r}-G{r})", f"=(F{r}-E{r})*(H{r}-G{r})",
-                f"=(D{r}-C{r})-I{r}-J{r}-K{r}",
+                f"=(D{r}-C{r})-(I{r}+J{r}+K{r})",
             ]
             for i, f in enumerate(cells):
                 c = ws.cell(row=r, column=3 + i, value=f)
@@ -261,6 +264,21 @@ def data_sheet(wb):
         ws.column_dimensions[get_column_letter(i + 1)].width = w
 
 
+def _freeze_timestamps(path: Path) -> None:
+    """Pin document dates and zip entry times so a rebuild writes identical bytes."""
+    stamp = f"{AS_OF}T00:00:00Z"
+    year, month, day = (int(x) for x in AS_OF.split("-"))
+    with zipfile.ZipFile(path) as z:
+        entries = [(i.filename, z.read(i.filename)) for i in z.infolist()]
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, body in entries:
+            if name == "docProps/core.xml":
+                body = re.sub(rb"(<dcterms:(created|modified)[^>]*>)[^<]*", lambda m: m.group(1) + stamp.encode(), body)
+            info = zipfile.ZipInfo(name, date_time=(year, month, day, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            z.writestr(info, body)
+
+
 def build() -> None:
     data = model.load_quarterly()
     wb = Workbook()
@@ -275,4 +293,5 @@ def build() -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     path = OUTPUT / "defense_backlog_model.xlsx"
     wb.save(path)
+    _freeze_timestamps(path)
     print(f"wrote {path.relative_to(OUTPUT.parent)}: {wb.sheetnames}")
