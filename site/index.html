@@ -41,11 +41,11 @@
       <div class="row">
         <h2 id="fc-title">Forecast against actual</h2>
         <div class="seg" role="group" aria-label="Forecast horizon">
-          <button type="button" data-view="h1" aria-pressed="true">Next quarter</button>
-          <button type="button" data-view="h4" aria-pressed="false">Next four quarters</button>
+          <button type="button" data-view="h1" aria-pressed="false">Next quarter</button>
+          <button type="button" data-view="h4" aria-pressed="true">Next four quarters</button>
         </div>
       </div>
-      <p class="note" id="fc-note">Each point is a forecast made with what was known at its origin, plotted at the quarter it forecast.</p>
+      <p class="note" id="fc-note">Each point is a forecast made with what was known at its origin.</p>
       <div class="chart"><canvas id="c-fc" role="img" aria-label="Forecast against actual chart"></canvas></div>
       <p class="caption" id="miss"></p>
     </section>
@@ -62,7 +62,7 @@
 
     <section class="panel wide" aria-labelledby="whatif-title">
       <h2 id="whatif-title">What if</h2>
-      <p class="note">A scenario, not a prediction. Move backlog and the four-quarter conversion rate away from where they stand at the latest quarter and read the revenue they imply for the next four quarters.</p>
+      <p class="note">A scenario, not a prediction. Start from the latest backlog and the average four-quarter conversion rate of the four origins one to two years back, shift either one, and read the revenue they imply for the next four quarters.</p>
       <div class="whatif">
         <div class="controls">
           <label for="shock">Backlog shock <output id="shock-out" for="shock"></output></label>
@@ -75,6 +75,7 @@
             <div class="big-label">Scenario revenue, next four quarters</div>
             <div class="big-num" id="fwd"></div>
             <div class="big-delta" id="fwd-delta"></div>
+            <p class="big-context" id="fwd-context"></p>
           </div>
         </div>
         <div class="grid-wrap">

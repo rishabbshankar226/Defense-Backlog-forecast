@@ -103,6 +103,7 @@ h2 { font-size: 18px; margin: 0; }
 .big-label { font-size: 13px; color: var(--muted); }
 .big-num { font-size: 38px; font-weight: 650; line-height: 1.1; }
 .big-delta { font-size: 14px; color: var(--muted); }
+.big-context { font-size: 13px; color: var(--ink); margin: 8px 0 0; }
 
 .grid-wrap { min-width: 0; }
 .grid { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: 13px; table-layout: fixed; }

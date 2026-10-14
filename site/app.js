@@ -6,11 +6,15 @@
     h1: { backlog: "Backlog model", naive: "Seasonal naive", naive_drift: "Seasonal naive with drift" },
     h4: { backlog: "Backlog model", naive: "Trailing 4Q", naive_drift: "Trailing 4Q with drift" }
   };
-  var PHRASE = { backlog: "the backlog model", naive: "the trailing four quarters", naive_drift: "the trailing four quarters with drift" };
+  var PHRASE = {
+    backlog: "the backlog model",
+    naive: "repeating the last four quarters' revenue",
+    naive_drift: "repeating the last four quarters' revenue grown at its recent rate"
+  };
   var MODELS = ["backlog", "naive", "naive_drift"];
 
   var data, tickers, charts = {};
-  var state = { ticker: null, view: "h1", year: null, shock: null, shift: null };
+  var state = { ticker: null, view: "h4", year: null, shock: null, shift: null };
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   var darkMode = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -61,7 +65,7 @@
   function renderHeader() {
     var m = data.metrics, h4 = m.mape.H4;
     var best = MODELS.slice().sort(function (a, b) { return h4[a].ALL - h4[b].ALL; })[0];
-    var line = "Over the next four quarters, " + PHRASE[best] + " missed revenue by " + pct(h4[best].ALL) +
+    var line = "Over the next four quarters, " + PHRASE[best] + " missed actual revenue by " + pct(h4[best].ALL) +
       " on average, the lowest of three models";
     line += best === "backlog" ? "." : ", while the backlog model missed by " + pct(h4.backlog.ALL) + ".";
     $("headline").textContent = line;
@@ -149,7 +153,7 @@
     $("c-backlog").setAttribute("aria-label", co.ticker + " backlog and trailing four-quarter revenue by quarter. At " +
       co.quarters[L] + ", backlog was " + billions(co.backlog_usd[L]) + " and trailing revenue " + billions(co.ttm_revenue_usd[L]) + ".");
     $("backlog-note").textContent = "Backlog at each quarter end against revenue over the trailing four quarters, in $B." +
-      (gaps.length ? " Breaks in the backlog line are quarters with no backlog tagged in the filing: " + gaps.join(", ") + "." : "");
+      (gaps.length ? " Breaks in the backlog line are quarters whose filings tag no backlog for the quarter's own end: " + gaps.join(", ") + "." : "");
   }
 
   function renderForecast(co, c) {
@@ -192,10 +196,14 @@
     makeChart("c-fc", { type: "line", data: { labels: block.target, datasets: datasets }, options: opts });
 
     var skipped = block.backlog.filter(function (x) { return x == null; }).length;
-    var cap = worst >= 0 ? "Largest miss: " + block.target[worst] + ", " + pct(apes.backlog[worst]) +
+    var when = v === "h1" ? block.target[worst] : "the four quarters to " + block.target[worst];
+    var cap = worst >= 0 ? "Largest miss: " + when + ", " + pct(apes.backlog[worst]) +
       " (backlog model, forecast " + billions(block.backlog[worst]) + " against " + billions(actual[worst]) + ")." : "";
     if (skipped) cap += " The backlog model skips " + skipped + " origins that need a quarter with no tagged backlog.";
     $("miss").textContent = cap;
+    $("fc-note").textContent = v === "h1"
+      ? "Each point is a forecast of one quarter's revenue, made with what was known a quarter earlier and plotted at the quarter it forecast."
+      : "Each point is a forecast of revenue over four quarters, made with what was known before them and plotted at the last of the four.";
 
     var mape = data.metrics.mape[v.toUpperCase()];
     $("c-fc").setAttribute("aria-label", co.ticker + " " + (v === "h1" ? "next-quarter" : "next-four-quarter") +
@@ -235,7 +243,8 @@
     var yLo = Math.max(0, (lo - pad) / 1e9), yHi = (hi + pad * 0.5) / 1e9;
     var step = Math.pow(10, Math.floor(Math.log10(yHi - yLo)));
     if ((yHi - yLo) / step < 3) step /= 2;
-    opts.scales.y.min = Math.floor(yLo / step) * step;
+    var yMin = Math.floor(yLo / step) * step;
+    opts.scales.y.min = yMin;
     opts.scales.y.max = Math.ceil(yHi / step) * step;
     opts.scales.y.ticks.stepSize = step;
     opts.plugins.tooltip.callbacks = {
@@ -263,7 +272,7 @@
       (r.conversion_prior.toFixed(2) === r.conversion.toFixed(2)
         ? "Conversion held at " + r.conversion.toFixed(2) + " of starting backlog."
         : "Conversion went from " + r.conversion_prior.toFixed(2) + " to " + r.conversion.toFixed(2) + " of starting backlog.") +
-      " The axis starts above zero.";
+      (yMin > 0 ? " The axis starts above zero." : "");
     $("bridge-cap").textContent = cap;
     $("c-bridge").setAttribute("aria-label", co.ticker + " revenue bridge for " + state.year + ". " + cap);
   }
@@ -297,8 +306,14 @@
     $("shock-out").textContent = signedPct(state.shock);
     $("shift-out").textContent = signedPct(state.shift, " pp");
     $("fwd").textContent = billions(val);
-    $("fwd-delta").textContent = d === 0 ? "No change from today's backlog and conversion: " + billions(base)
-      : signedBillions(d) + " (" + (d < 0 ? "−" : "+") + Math.abs(d / base * 100).toFixed(1) + "%) against " + billions(base) + " with no change";
+    $("fwd-delta").textContent = d === 0 ? "Latest backlog at the average conversion rate of the past four origins: " + billions(base)
+      : signedBillions(d) + " (" + (d < 0 ? "−" : "+") + Math.abs(d / base * 100).toFixed(1) + "%) against " + billions(base) + " with no shock or shift";
+    var L = co.quarters.length - 1, ttm = co.ttm_revenue_usd[L], bias = data.metrics.bias.H4.backlog[co.ticker];
+    var gap = (base / ttm - 1) * 100;
+    $("fwd-context").textContent = "Revenue over the four quarters to " + co.quarters[L] + " was " + billions(ttm) +
+      ", so the unshocked scenario sits " + Math.abs(gap).toFixed(1) + "% " + (gap >= 0 ? "above" : "below") + " it." +
+      (bias == null ? "" : " In the backtest the backlog model's four-quarter forecasts for " + co.ticker + " ran " +
+        Math.abs(bias).toFixed(1) + "% " + (bias >= 0 ? "high" : "low") + " on average.");
 
     var all = co.sensitivity.map(function (r) { return r.forward_revenue_usd; });
     var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
@@ -350,7 +365,7 @@
 
   function syncQuery() {
     var q = new URLSearchParams(location.search);
-    if (state.view !== "h1") q.set("view", state.view); else q.delete("view");
+    if (state.view !== "h4") q.set("view", state.view); else q.delete("view");
     if (state.shock) q.set("shock", state.shock); else q.delete("shock");
     if (state.shift) q.set("shift", state.shift); else q.delete("shift");
     var s = q.toString();

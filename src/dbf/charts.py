@@ -109,8 +109,8 @@ def backlog_chart(data):
     leg.plot([], [], color=INK, lw=3, label="Revenue, trailing four quarters")
     leg.legend(loc="center left", frameon=False, fontsize=15)
     fig.text(0.06, 0.93, "Backlog and trailing revenue, $B, by quarter", fontsize=22, weight="bold")
-    fig.text(0.06, 0.895, "Gaps are quarters where the company did not tag backlog in XBRL "
-             "(LHX 2020 to 2021).", fontsize=14, color="#444444")
+    fig.text(0.06, 0.895, "Gaps are quarters whose filings tag no backlog for the quarter's own end "
+             "(LHX, first three quarters of 2020 and 2021).", fontsize=14, color="#444444")
     _source(fig)
     _save(fig, "backlog_vs_revenue.png")
 

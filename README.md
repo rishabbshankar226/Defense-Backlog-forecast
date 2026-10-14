@@ -1,32 +1,32 @@
 # Does backlog predict revenue? Five defense primes, 2018 to 2026
 
-[Open the interactive dashboard](https://rishabbshankar226.github.io/defense-backlog-forecast/): pick a company, compare each model's forecasts with what happened, take apart a year's revenue change, and stress next year's revenue.
+[Open the interactive dashboard](https://rishabbshankar226.github.io/Defense-Backlog-forecast/): pick a company, compare each model's forecasts with what happened, take apart a year's revenue change, and stress next year's revenue.
 
-[![The dashboard, showing Lockheed Martin](output/charts/dashboard.png)](https://rishabbshankar226.github.io/defense-backlog-forecast/)
+[![The dashboard, showing Lockheed Martin](output/charts/dashboard.png)](https://rishabbshankar226.github.io/Defense-Backlog-forecast/)
 
-I tested whether the backlog that HII, LHX, LMT, NOC and RTX report at quarter end forecasts their next quarters of revenue better than last year's revenue does, using only what their SEC filings showed at the time.
+I tested whether the backlog that HII, LHX, LMT, NOC and RTX report at quarter end forecasts their revenue over the following one and four quarters better than last year's revenue does, using only what their SEC filings showed at the time.
 
 ## Results
 
-Over the next four quarters (H4), the trailing 4Q baseline had the lowest pooled MAPE at 5.76%, against 6.04% for the trailing 4Q with drift baseline and 9.40% for the backlog model. Backlog at quarter end did not forecast revenue better than last year's revenue did.
+Backlog did not beat simple trailing revenue. Over the next four quarters, the backlog model missed actual revenue by 9.4% on average, against 5.8% for trailing four-quarter revenue and 6.0% for trailing revenue with drift. RTX was the exception, at 4.4% for backlog against 8.5% for trailing four-quarter revenue. The baselines also score 6 LHX origins where backlog is missing; on the origins all three models share, the ranking is the same.
 
 MAPE by horizon, model and company (lower is better):
 
 | Horizon | Model | ALL | HII | LHX | LMT | NOC | RTX |
 |---|---|---:|---:|---:|---:|---:|---:|
-| H1 | Backlog model | 9.89% | 13.74% | 13.59% | 6.20% | 9.03% | 8.34% |
-| H1 | Seasonal naive | 7.31% | 7.30% | 7.84% | 5.37% | 6.32% | 11.21% |
-| H1 | Seasonal naive with drift | 6.52% | 6.81% | 6.81% | 5.25% | 6.00% | 8.52% |
-| H4 | Backlog model | 9.40% | 11.84% | 20.64% | 5.48% | 9.81% | 4.36% |
-| H4 | Trailing 4Q | 5.76% | 5.98% | 7.28% | 3.78% | 4.84% | 8.55% |
-| H4 | Trailing 4Q with drift | 6.04% | 4.83% | 8.65% | 4.10% | 7.43% | 6.41% |
+| Next quarter (H1) | Backlog model | 9.9% | 13.7% | 13.6% | 6.2% | 9.0% | 8.3% |
+| Next quarter (H1) | Seasonal naive | 7.3% | 7.3% | 7.8% | 5.4% | 6.3% | 11.2% |
+| Next quarter (H1) | Seasonal naive with drift | 6.5% | 6.8% | 6.8% | 5.3% | 6.0% | 8.5% |
+| Next four quarters (H4) | Backlog model | 9.4% | 11.8% | 20.6% | 5.5% | 9.8% | 4.4% |
+| Next four quarters (H4) | Trailing 4Q | 5.8% | 6.0% | 7.3% | 3.8% | 4.8% | 8.5% |
+| Next four quarters (H4) | Trailing 4Q with drift | 6.0% | 4.8% | 8.7% | 4.1% | 7.4% | 6.4% |
 
-The backlog model's error was smaller than the naive baseline's (seasonal naive at H1, trailing 4Q at H4) at 45.0% of H1 origins and 36.5% of H4 origins. Its mean signed error was 5.40% at H1 and 4.96% at H4, where a positive value means it forecast too high.
+The backlog model's error was smaller than the naive baseline's (seasonal naive at H1, trailing 4Q at H4) at 45.0% of H1 origins and 36.5% of H4 origins. Its mean signed error was 5.4% at H1 and 5.0% at H4, where a positive value means it forecast too high.
 
 | Win rate vs naive | ALL | HII | LHX | LMT | NOC | RTX |
 |---|---:|---:|---:|---:|---:|---:|
-| H1 | 45.0% | 40.0% | 18.2% | 52.0% | 39.1% | 68.8% |
-| H4 | 36.5% | 40.9% | 25.0% | 22.7% | 30.0% | 69.2% |
+| Next quarter (H1) | 45.0% | 40.0% | 18.2% | 52.0% | 39.1% | 68.8% |
+| Next four quarters (H4) | 36.5% | 40.9% | 25.0% | 22.7% | 30.0% | 69.2% |
 
 The backtest scores 100 backlog-model forecasts at H1 and 85 at H4. The naive models score more, because they need no backlog and LHX has quarters without it.
 
@@ -40,15 +40,15 @@ The design, windows and companies were fixed before any result existed, in [docs
 - **Scoring.** APE is the absolute error over actual revenue. MAPE is its mean; ALL pools every forecast. Win rate is the share of origins where the backlog model's APE is below the naive model's.
 - **Bridge.** Each year's revenue change splits into a backlog effect, a conversion effect and their interaction, with no residual beyond rounding.
 
-The Excel model ([output/defense_backlog_model.xlsx](output/defense_backlog_model.xlsx)) rebuilds every forecast with live formulas.
+The Excel model ([output/defense_backlog_model.xlsx](output/defense_backlog_model.xlsx)) rebuilds every forecast with live formulas. A separate checker, kept outside this repository, pulls the SEC data itself, recomputes every figure in the results, the workbook, the dashboard data and these documents, and compares.
 
 ## Data
 
-All figures come from SEC's XBRL companyfacts API, read as of 2026-10-13. Each company starts where its current form begins: LHX in 2020Q1 after the L3 and Harris merger, NOC in 2018Q3 after it bought Orbital ATK, and RTX in 2020Q2 after the UTC and Raytheon merger.
+All figures come from SEC's XBRL companyfacts API, read as of 2026-10-13. Each company starts where its current form begins: LHX in 2020Q1, after the L3 and Harris merger closed in June 2019 and the six-month transition period it filed on a 10-KT, NOC in 2018Q3 after it bought Orbital ATK, and RTX in 2020Q2 after the UTC and Raytheon merger.
 
 General Dynamics is left out. Its 10-Qs last tagged remaining performance obligations for the quarter ended September 2018, and its revenue facts since 2021 are full-year only, so quarterly backlog and revenue cannot be built from XBRL.
 
-LHX's 10-Qs for 2020 and 2021 tag backlog only at the prior year end, never at the quarter's own end. Those six quarters have no backlog, so the backlog model skips every forecast that needs one. The baselines do not need backlog and keep those quarters.
+LHX's 10-Qs for the first three quarters of 2020 and 2021 never tag backlog at the quarter's own end: the 2020Q1 filing tags none, and the rest tag only the prior year end. Those six quarters have no backlog, so the backlog model skips every forecast that needs one. The baselines do not need backlog and keep those quarters.
 
 `data/raw/MANIFEST.json` records the hash and size of each companyfacts file used.
 
@@ -58,9 +58,9 @@ LHX's 10-Qs for 2020 and 2021 tag backlog only at the prior year end, never at t
 - **Implied bookings are a residual.** Backlog change plus revenue also absorbs cancellations, currency moves and acquisitions, so it is not a clean orders number.
 - **Conversion is held constant.** The backlog model assumes the next conversion rate matches recent ones. Program mix and contract timing move it.
 - **RTX's backlog includes commercial aerospace**, which follows airline demand rather than defense budgets.
-- **The merger start dates shorten the sample.** LHX and RTX start in 2020 and NOC in 2018Q3, so their first backtest origins come two years later.
+- **The merger start dates shorten the sample.** LHX and RTX start in 2020 and NOC in 2018Q3. The first backtest origin is two years after each start, and later still for LHX's backlog model, which first has the inputs it needs at 2022Q4 (next quarter) and 2023Q3 (next four quarters).
 - **H4 windows overlap.** Consecutive four-quarter forecasts share three quarters of actuals, so the H4 forecasts are far from independent and the pooled MAPE is less certain than its count suggests.
-- **HII's tagged backlog jumps between 2018Q4 and 2019Q1.** I found no filing sentence giving the reason, so I describe it and leave it there.
+- **HII's tagged backlog jumps between 2018Q4 and 2019Q1**, from $23.0B to $40.6B. Forecasts made in 2020 average conversion rates from before and after the jump, and they are HII's largest backlog-model misses at both horizons. The same jump produces the large backlog effect in HII's 2020 bridge. I found no filing sentence giving the reason, so I describe it and stop there.
 
 ## Reproduce
 
