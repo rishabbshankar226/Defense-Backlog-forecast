@@ -24,4 +24,10 @@ Choices I made while building this, and the reasons for them.
 - The forecast panel opens on the four-quarter view to match the scoreboard. The lowest-error tile carries the accent colour, and its label says why.
 - The what-if panel shows trailing four-quarter revenue and the company's backtest bias next to the scenario, since the unshocked scenario can sit well above recent revenue.
 - Headless Chrome on macOS will not open a window narrower than 500 px. To check the 390 px phone layout, I loaded the page in a 390 px iframe and confirmed it has no sideways scroll for any company.
+- The company cards are the tabs. Once they scroll off the top, a compact bar with the tickers slides in. It is fixed rather than sticky, so showing it never moves the page, and it is inert while hidden so it never takes focus.
+- The scenario fan plots each scenario at the quarter four ahead of the latest one. Trailing four-quarter revenue at that quarter is exactly the scenario's revenue over the next four quarters, so each line ends on its own figure. The straight line from today's trailing revenue is a join, not a forecast path, and the note under the chart says so.
+- The replay hides each forecast until the head reaches it, and keeps Actual on screen as a faint track. Under reduced motion the Play button is hidden and the scrubber still steps through.
+- The book-to-bill strip shares the backlog chart's quarters and a fixed y-axis width, so its bars sit under the same quarters. Hovering any of the backlog, book-to-bill and forecast charts draws a dashed crosshair at the same quarter in the other two.
+- The scoreboard's bars and its company dots share one scale, set by the largest per-company error, so LHX's backlog-model error stays on the bar.
+- The theme button saves its choice in `localStorage` and applies it before the first paint. Without a saved choice, the page follows the system setting.
 - GitHub Pages serves the site at `/Defense-Backlog-forecast/`, matching the repository name. The lowercase path returns 404.

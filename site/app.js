@@ -42,7 +42,14 @@
       ["Conversion rate", "The share of the backlog at the start of a year that became revenue during that year."],
       ["Overlap (interaction)", "The part of the change that comes from backlog and conversion moving at the same time, so the three effects add up exactly."]] },
     shock: { ask: "What is a change in backlog?", terms: [["Change in backlog", "A hypothetical rise or fall in today's backlog, as a percentage of it."]] },
-    shift: { ask: "What is a change in conversion rate?", terms: [["Change in conversion rate (pp)", "A hypothetical change to the conversion rate, in percentage points: an absolute change in the rate, not a percentage of it."]] }
+    shift: { ask: "What is a change in conversion rate?", terms: [["Change in conversion rate (pp)", "A hypothetical change to the conversion rate, in percentage points: an absolute change in the rate, not a percentage of it."]] },
+    btb: { ask: "What is implied book-to-bill?", terms: [
+      ["Implied book-to-bill", "Orders implied by the filings, divided by the quarter's revenue. The implied orders are the change in backlog plus the quarter's revenue, so above 1 means backlog grew that quarter."],
+      ["A residual, not an orders figure", "The implied orders also absorb cancellations, currency moves and acquisitions, so a single quarter can jump."]] },
+    cards: { ask: "What do the company cards show?", terms: [
+      ["Backlog better or worse", "Whether the backlog model's four-quarter forecasts for that company missed by less or by more, on average, than repeating the last four quarters' revenue."],
+      ["Years of revenue in backlog", "The latest backlog divided by revenue over the last four quarters: roughly how many years of signed work are on the books at the current pace."],
+      ["The small chart", "Backlog (the coloured line and shading) and revenue over the trailing four quarters (the dark line), on one scale starting at zero."]] }
   };
   var APE_NOTE = ["Off by:", "how far the forecast was from actual revenue, as a share of actual."];
   var TABLE_SHOW = "Show as table", TABLE_HIDE = "Hide table";
@@ -56,7 +63,9 @@
     return null;
   }
   var TWEEN_MS = 250;      // what-if number tween
-  var PANEL_INDEX = { "c-backlog": 3, "c-fc": 4, "c-bridge": 5 };
+  var PANEL_INDEX = { "c-backlog": 3, "c-btb": 3, "c-fc": 4, "c-bridge": 5, "c-fan": 6 };
+  var LINKED = ["c-backlog", "c-btb", "c-fc"];   // charts whose crosshairs follow one another by quarter
+  var REPLAY_STEP_MS = 280; // time the replay spends on each forecast
   var LAST_INTRO = 8;      // highest --i in index.html
 
   var data, tickers, charts = {};
@@ -74,7 +83,8 @@
     return {
       ink: css("--ink"), muted: css("--muted"), grid: css("--grid"), accent: css("--accent"),
       naive: css("--naive"), drift: css("--drift"), surface: css("--surface"), line: css("--line"),
-      cross: css("--crosshair"), ink2: css("--ink-2")
+      cross: css("--crosshair"), ink2: css("--ink-2"), accentSoft: css("--accent-soft"),
+      track: css("--track-strong"), wash: css("--hover")
     };
   }
   function modelColor(c, m) { return m === "backlog" ? c.accent : m === "naive" ? c.naive : c.drift; }
@@ -153,37 +163,197 @@
 
   /* ---------- chart theme ---------- */
 
-  // Draw-in clip, crosshair, largest-miss marker and waterfall connectors, in one plugin.
+  // Draw-in clip, replay head, miss band, crosshair, largest-miss marker and waterfall
+  // connectors, in one plugin.
   var theme = {
     id: "dbfTheme",
     beforeDatasetsDraw: function (chart) {
       var a = chart.chartArea, ctx = chart.ctx, r = chart.$reveal == null ? 1 : chart.$reveal;
+      if (chart.$future != null) drawFuture(chart);
+      if (chart.$upto != null) drawGhost(chart);
       ctx.save();
-      if (r < 1) {
+      if (r < 1 || chart.$upto != null) {
+        var right = a.left - 4 + (a.right - a.left + 12) * r;
+        if (chart.$upto != null) right = Math.min(right, headX(chart) + 1);
         ctx.beginPath();
-        ctx.rect(0, 0, a.left - 4 + (a.right - a.left + 12) * r, chart.height);
+        ctx.rect(0, 0, right, chart.height);
         ctx.clip();
       }
+      if (chart.$band) drawBand(chart);
+      if (chart.$baseline != null) drawBaseline(chart);
+      // A solid crosshair where the pointer is; a dashed one where another chart's
+      // pointer is, at the same quarter.
       if (chart.$crosshair) {
         var act = chart.tooltip ? chart.tooltip.getActiveElements() : [];
-        if (act.length) {
-          var x = Math.round(act[0].element.x) + 0.5;
+        var cx = act.length ? act[0].element.x : chart.$link != null ? chart.scales.x.getPixelForValue(chart.$link) : null;
+        if (cx != null) {
+          var x = Math.round(cx) + 0.5;
           ctx.beginPath();
           ctx.moveTo(x, a.top);
           ctx.lineTo(x, a.bottom);
           ctx.lineWidth = 1;
           ctx.strokeStyle = chart.$colors.cross;
+          if (!act.length) ctx.setLineDash([3, 3]);
           ctx.stroke();
+          ctx.setLineDash([]);
         }
       }
     },
     afterDatasetsDraw: function (chart) {
-      if (chart.$miss) drawMiss(chart);
+      // The miss marker reveals with the draw-in, but during a replay it sits on the
+      // head, so it is drawn outside the clip there.
+      if (chart.$miss && chart.$upto == null) drawMiss(chart);
       if (chart.$connectors) drawConnectors(chart);
       chart.ctx.restore();
-      if (chart.$ends) drawEnds(chart);
+      if (chart.$upto != null) {
+        if (chart.$miss) drawMiss(chart);
+        drawHead(chart);
+      } else if (chart.$ends) drawEnds(chart);
+      if (chart.$link != null && chart.config.type === "line") drawLink(chart);
     }
   };
+
+  // A reference rule across the plot at one value, such as book-to-bill of 1.
+  function drawBaseline(chart) {
+    var a = chart.chartArea, ctx = chart.ctx, y = Math.round(chart.scales.y.getPixelForValue(chart.$baseline)) + 0.5;
+    if (y < a.top || y > a.bottom) return;
+    ctx.save();
+    ctx.strokeStyle = chart.$colors.muted;
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(a.left, y);
+    ctx.lineTo(a.right, y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Where another chart is pointing, mark each line's value at that quarter.
+  function drawLink(chart) {
+    var ctx = chart.ctx, act = chart.tooltip ? chart.tooltip.getActiveElements() : [];
+    if (act.length) return;
+    ctx.save();
+    chart.data.datasets.forEach(function (ds, i) {
+      if (!chart.isDatasetVisible(i)) return;
+      var p = chart.getDatasetMeta(i).data[chart.$link];
+      if (!p || p.skip || !isFinite(p.y)) return;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3.5, 0, 2 * Math.PI);
+      ctx.fillStyle = ds.borderColor;
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = chart.$colors.surface;
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  // Pointing at a quarter in one linked chart marks the same quarter in the others.
+  function linkHover(evt, els, chart) {
+    var label = els && els.length && evt.type !== "mouseout" ? chart.data.labels[els[0].index] : null;
+    LINKED.forEach(function (id) {
+      var ch = charts[id];
+      if (!ch || ch === chart) return;
+      var i = label == null ? -1 : ch.data.labels.indexOf(label), v = i < 0 ? null : i;
+      if (ch.$link !== v) { ch.$link = v; ch.draw(); }
+    });
+  }
+
+  // The x position of the replay head, which sits between two forecasts while it moves.
+  function headX(chart) {
+    var xs = chart.scales.x, u = chart.$upto, i = Math.floor(u), f = u - i;
+    var x0 = xs.getPixelForValue(i), n = chart.data.labels.length;
+    return i + 1 < n ? x0 + (xs.getPixelForValue(i + 1) - x0) * f : x0;
+  }
+
+  // During a replay, the whole of Actual stays on screen as a faint track ahead of the head.
+  function drawGhost(chart) {
+    if (!chart.isDatasetVisible(0)) return;
+    var pts = chart.getDatasetMeta(0).data, ctx = chart.ctx, pen = false;
+    ctx.save();
+    ctx.strokeStyle = chart.$colors.track;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    pts.forEach(function (p) {
+      if (!p || p.skip || !isFinite(p.y)) { pen = false; return; }
+      if (pen) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+      pen = true;
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // The replay head: a dotted rule at the forecast being read, labelled with its quarter.
+  function drawHead(chart) {
+    var a = chart.chartArea, ctx = chart.ctx, c = chart.$colors, x = Math.round(headX(chart)) + 0.5;
+    ctx.save();
+    ctx.strokeStyle = c.accent;
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, a.top);
+    ctx.lineTo(x, a.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    if (chart.$headLabel) {
+      ctx.font = font(11);
+      ctx.textBaseline = "middle";
+      var w = ctx.measureText(chart.$headLabel).width + 12, h = 20;
+      var bx = Math.max(a.left, Math.min(x - w / 2, a.right - w)), by = a.top - 2;
+      ctx.fillStyle = c.accent;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(bx, by, w, h, 4); else ctx.rect(bx, by, w, h);
+      ctx.fill();
+      ctx.fillStyle = c.surface;
+      ctx.textAlign = "center";
+      ctx.fillText(chart.$headLabel, bx + w / 2, by + h / 2 + 0.5);
+    }
+    ctx.restore();
+  }
+
+  // The gap between the backlog forecast and Actual, shaded so every miss reads as an area.
+  // One path per unbroken run, so neighbouring segments never double the tint at their seams.
+  function drawBand(chart) {
+    if (!chart.isDatasetVisible(0) || !chart.isDatasetVisible(1)) return;
+    var A = chart.getDatasetMeta(0).data, B = chart.getDatasetMeta(1).data, ctx = chart.ctx;
+    var ok = function (p) { return p && !p.skip && isFinite(p.y); };
+    ctx.save();
+    ctx.fillStyle = chart.$colors.accentSoft;
+    if (chart.$spot != null && chart.$spot > 1) ctx.globalAlpha = 0.3;
+    var run = [];
+    function flush() {
+      if (run.length > 1) {
+        ctx.beginPath();
+        run.forEach(function (i, j) { if (j) ctx.lineTo(A[i].x, A[i].y); else ctx.moveTo(A[i].x, A[i].y); });
+        for (var j = run.length - 1; j >= 0; j--) ctx.lineTo(B[run[j]].x, B[run[j]].y);
+        ctx.closePath();
+        ctx.fill();
+      }
+      run = [];
+    }
+    for (var i = 0; i < A.length; i++) { if (ok(A[i]) && ok(B[i])) run.push(i); else flush(); }
+    flush();
+    ctx.restore();
+  }
+
+  // The forecast span of the scenario fan, as a light wash with its name at the top.
+  function drawFuture(chart) {
+    var a = chart.chartArea, ctx = chart.ctx, c = chart.$colors;
+    var x = chart.scales.x.getPixelForValue(chart.$future);
+    ctx.save();
+    ctx.fillStyle = c.wash;
+    ctx.fillRect(x, a.top, a.right - x, a.bottom - a.top);
+    if (chart.$futureLabel) {
+      ctx.font = font(11);
+      ctx.fillStyle = c.muted;
+      ctx.textBaseline = "top";
+      ctx.fillText(chart.$futureLabel, x + 8, a.top + 6);
+    }
+    ctx.restore();
+  }
 
   function font(size) { return "600 " + size + "px " + Chart.defaults.font.family; }
 
@@ -196,6 +366,7 @@
     var items = [];
     chart.data.datasets.forEach(function (ds, i) {
       if (!chart.isDatasetVisible(i)) return;
+      if (chart.$endKeys && chart.$endKeys.indexOf(ds.key) < 0) return;
       var j = ds.data.length - 1;
       while (j >= 0 && ds.data[j] == null) j--;
       var p = j >= 0 ? chart.getDatasetMeta(i).data[j] : null;
@@ -342,6 +513,7 @@
       return;
     }
     var spec = chart.$tip(model.dataPoints);
+    if (!spec) { tip.classList.remove("show"); return; }
     tip.textContent = "";
     if (spec.title) tip.appendChild(el("div", "tip-title", spec.title));
     var rows = el("div", "tip-rows");
@@ -472,7 +644,8 @@
       ch = charts[id] = new Chart($(id), config);
       ch.options.animation = anim;
       Object.assign(ch, extras);
-      if (config.type === "line") ch.$reveal = still() ? 1 : 0;
+      if (config.type === "line" || ch.$clipReveal) ch.$reveal = still() ? 1 : 0;
+      if (LINKED.indexOf(id) >= 0) $(id).addEventListener("mouseleave", function () { linkHover({ type: "mouseout" }, [], ch); });
       ch.draw();
       return ch;
     }
@@ -681,7 +854,7 @@
     ch.$revealed = true;
     var wait = still() ? 0 : Math.max(0, introAt + PANEL_INDEX[id] * ms("--stagger") - performance.now());
     setTimeout(function () {
-      if (ch.config.type === "bar") {
+      if (ch.$bars) {
         ch.$connectors = true;
         ch.data.datasets[0].data = ch.$bars;
         ch.update(still() ? "none" : "reveal");
@@ -741,10 +914,13 @@
     $("asof").textContent = "Data as of " + longDate(data.as_of);
 
     var c = colors(), tiles = $("tiles"), stagger = ms("--stagger");
-    var scale = Math.max.apply(null, MODELS.map(function (k) { return h4[k].ALL; }));
+    // One scale for the pooled bars and each company's dot, so the dots never run off the end.
+    var scale = Math.max.apply(null, [].concat.apply([], MODELS.map(function (k) {
+      return Object.keys(h4[k]).map(function (t) { return h4[k][t]; });
+    })).filter(function (v) { return v != null; }));
     tiles.innerHTML = "";
     // One row per figure: label and value, then a bar on a shared scale so the gaps read at a glance.
-    function row(i, cls, name, color, value, share, sub, flag) {
+    function row(i, cls, name, color, value, share, sub, flag, dots) {
       var t = el("div", "tile" + (cls ? " " + cls : ""));
       t.innerHTML = '<div class="name"></div><div class="val"></div><div class="bar" aria-hidden="true"><i></i></div><div class="sub"></div>';
       if (color) {
@@ -764,16 +940,46 @@
       var delay = (i + 2) * stagger;
       countUp(t.querySelector(".val"), value, delay);
       grow(fill, share, delay);
+      if (dots) addDots(t.querySelector(".bar"), dots, color || c.ink, delay);
       return t;
     }
+    var perCo = function (block, fmt, max) {
+      return tickers.filter(function (t) { return block[t] != null; }).map(function (t) {
+        return { t: t, at: block[t] / max, label: t + " " + fmt(block[t]) };
+      });
+    };
     MODELS.forEach(function (k, i) {
       row(i, k === best ? "best" : "", NAMES.h4[k], modelColor(c, k), h4[k].ALL, h4[k].ALL / scale,
-        GLOSS[k], k === best ? "Lowest error" : null);
+        GLOSS[k], k === best ? "Lowest error" : null, perCo(h4[k], pct, scale));
     });
     var win = m.win_rate_vs_naive.H4.ALL;
     var w = row(3, "win", "Backlog model was closer", null, win, win / 100,
-      "than trailing 4Q in " + Math.round(win / 100 * m.n.H4) + " of " + m.n.H4 + " four-quarter forecasts");
+      "than trailing 4Q in " + Math.round(win / 100 * m.n.H4) + " of " + m.n.H4 + " four-quarter forecasts", null,
+      perCo(m.win_rate_vs_naive.H4, pct, 100));
     w.querySelector(".bar").appendChild(el("b", "half"));
+    if (state.ticker) markDots(state.ticker);
+  }
+
+  // Each company's own figure as a dot on the tile's bar. Pointing at one names it, and
+  // choosing it picks that company; the cards below do the same for keyboard users.
+  function addDots(bar, dots, color, delay) {
+    dots.forEach(function (d, j) {
+      var dot = el("span", "co-dot");
+      dot.dataset.t = d.t;
+      dot.dataset.label = d.label;
+      dot.style.left = (Math.max(0, Math.min(1, d.at)) * 100) + "%";
+      dot.style.setProperty("--c", color);
+      dot.addEventListener("click", function () { selectTicker(d.t, true); });
+      if (!introDone && !still()) {
+        dot.style.opacity = "0";
+        setTimeout(function () { dot.style.opacity = ""; }, delay + ms("--dur-4") + j * ms("--stagger"));
+      }
+      bar.appendChild(dot);
+    });
+  }
+
+  function markDots(t) {
+    document.querySelectorAll("#tiles .co-dot").forEach(function (d) { d.classList.toggle("on", d.dataset.t === t); });
   }
 
   function grow(fill, share, delay) {
@@ -783,23 +989,78 @@
     setTimeout(function () { fill.style.transform = to; }, delay);
   }
 
-  /* ---------- tabs ---------- */
+  /* ---------- company cards and the compact bar ---------- */
 
-  function renderTabs() {
-    var bar = $("tabs");
-    bar.innerHTML = "";
-    tickers.forEach(function (t) {
-      var b = el("button", "wash");
+  // A small backlog and trailing-revenue chart for a card, on one scale from zero.
+  // Quarters with no tagged backlog leave a break, as they do in the full chart.
+  function sparkSvg(co) {
+    var W = 120, H = 40, n = co.quarters.length;
+    var max = Math.max.apply(null, co.backlog_usd.concat(co.ttm_revenue_usd).filter(function (v) { return v != null; }));
+    function pts(arr) {
+      return arr.map(function (v, i) { return v == null ? null : [i / (n - 1) * W, H - 1 - v / max * (H - 3)]; });
+    }
+    function runs(p) {
+      var out = [], cur = [];
+      p.forEach(function (q) { if (q) cur.push(q); else { if (cur.length) out.push(cur); cur = []; } });
+      if (cur.length) out.push(cur);
+      return out;
+    }
+    function xy(q) { return q[0].toFixed(1) + " " + q[1].toFixed(1); }
+    function line(p) { return runs(p).map(function (r) { return "M" + r.map(xy).join("L"); }).join(""); }
+    function area(p) {
+      return runs(p).filter(function (r) { return r.length > 1; }).map(function (r) {
+        return "M" + r[0][0].toFixed(1) + " " + H + "L" + r.map(xy).join("L") + "L" + r[r.length - 1][0].toFixed(1) + " " + H + "Z";
+      }).join("");
+    }
+    var b = pts(co.backlog_usd), r = pts(co.ttm_revenue_usd);
+    return '<svg class="spark" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" aria-hidden="true" focusable="false">' +
+      '<path class="sp-area" d="' + area(b) + '"/>' +
+      '<path class="sp-rev" vector-effect="non-scaling-stroke" d="' + line(r) + '"/>' +
+      '<path class="sp-bl" vector-effect="non-scaling-stroke" d="' + line(b) + '"/></svg>';
+  }
+
+  // The cards are the company tabs: each one names a company and sums up its record.
+  function renderCards() {
+    var box = $("cards"), m = data.metrics;
+    box.textContent = "";
+    tickers.forEach(function (t, i) {
+      var co = data.companies[t], L = co.quarters.length - 1, name = COMPANY[t] || t;
+      var bk = m.mape.H4.backlog[t], nv = m.mape.H4.naive[t];
+      var cover = co.backlog_usd[L] != null && co.ttm_revenue_usd[L] ? co.backlog_usd[L] / co.ttm_revenue_usd[L] : null;
+      var b = el("button", "card");
       b.type = "button";
-      b.setAttribute("role", "tab");
       b.id = "tab-" + t;
-      b.setAttribute("aria-label", COMPANY[t] ? COMPANY[t] + " (" + t + ")" : t);
-      twoTone(b, t);
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-controls", "company");
+      if (i < 9) b.setAttribute("aria-keyshortcuts", String(i + 1));
+      var top = el("span", "card-top");
+      top.appendChild(el("span", "card-tk", t));
+      var said = name + " (" + t + ").";
+      if (bk != null && nv != null) {
+        var better = bk < nv, badge = el("span", "badge " + (better ? "up" : "down"));
+        badge.appendChild(el("span", "badge-dot"));
+        badge.appendChild(el("span", "badge-txt", better ? "Backlog better" : "Backlog worse"));
+        top.appendChild(badge);
+        said += better ? " Backlog better." : " Backlog worse.";
+      }
+      b.appendChild(top);
+      b.appendChild(el("span", "card-name", name));
+      var sp = el("span", "card-spark");
+      sp.innerHTML = sparkSvg(co);
+      b.appendChild(sp);
+      if (cover != null) {
+        var cov = el("span", "card-cov");
+        cov.appendChild(el("strong", "", cover.toFixed(1)));
+        cov.appendChild(document.createTextNode(" years of revenue in backlog"));
+        b.appendChild(cov);
+        said += " " + cover.toFixed(1) + " years of revenue in backlog.";
+      }
+      b.setAttribute("aria-label", said);
       b.addEventListener("click", function () { selectTicker(t, true); });
-      bar.appendChild(b);
+      box.appendChild(b);
     });
-    addPill(bar);
-    bar.addEventListener("keydown", function (e) {
+    addPill(box);
+    box.addEventListener("keydown", function (e) {
       var i = tickers.indexOf(state.ticker), j = i;
       if (e.key === "ArrowRight") j = (i + 1) % tickers.length;
       else if (e.key === "ArrowLeft") j = (i - 1 + tickers.length) % tickers.length;
@@ -812,43 +1073,140 @@
     });
   }
 
+  // The compact bar repeats the choice as plain toggle buttons once the cards are off screen.
+  function renderTabs() {
+    var bar = $("tabs");
+    bar.innerHTML = "";
+    tickers.forEach(function (t) {
+      var b = el("button", "wash");
+      b.type = "button";
+      b.id = "cb-" + t;
+      b.setAttribute("aria-label", COMPANY[t] ? COMPANY[t] + " (" + t + ")" : t);
+      twoTone(b, t);
+      b.addEventListener("click", function () { selectTicker(t, true); });
+      bar.appendChild(b);
+    });
+    addPill(bar);
+  }
+
   function selectTicker(t, push) {
+    var changed = state.ticker !== t;
     state.ticker = t;
     tickers.forEach(function (k) {
-      var b = $("tab-" + k), on = k === t;
-      b.setAttribute("aria-selected", on ? "true" : "false");
-      b.tabIndex = on ? 0 : -1;
+      var card = $("tab-" + k), on = k === t;
+      card.setAttribute("aria-selected", on ? "true" : "false");
+      card.tabIndex = on ? 0 : -1;
+      $("cb-" + k).setAttribute("aria-pressed", on ? "true" : "false");
     });
+    placePill($("cards"), true);
     placePill($("tabs"), true);
+    markBackdrop(t);
+    markDots(t);
     $("co-name").textContent = COMPANY[t] || "";
     $("company").setAttribute("aria-labelledby", "tab-" + t);
     if (push && location.hash !== "#" + t) history.replaceState(null, "", location.pathname + location.search + "#" + t);
+    // Words re-settle with a short fade while the charts morph to the new company.
+    if (push && changed && introDone && !still()) {
+      ["company", "verdict"].forEach(function (id) {
+        var n = $(id);
+        n.classList.remove("swap");
+        void n.offsetWidth;
+        n.classList.add("swap");
+      });
+    }
     state.year = null;
     renderVerdict(t);
     renderCompany();
   }
 
-  // One sentence on how the backlog model did for the selected company.
+  // One sentence on how the backlog model did for the selected company. Its figures run
+  // from the previous company's to the new one's.
   function renderVerdict(t) {
     var m = data.metrics, b = m.mape.H4.backlog[t], n = m.mape.H4.naive[t], w = m.win_rate_vs_naive.H4[t];
-    var box = $("verdict");
+    var box = $("verdict"), prev = box.$prev, nums = [];
     box.textContent = "";
-    if (b == null || n == null) return;
-    var name = COMPANY[t] || t, fig = function (text) { return el("span", "num", text); };
+    if (b == null || n == null) { box.$prev = null; return; }
+    var name = COMPANY[t] || t, fig = function (v) { var s = el("span", "num", pct(v)); nums.push([s, v]); return s; };
     [el("strong", "", "Backlog did " + (b < n ? "better" : "worse") + " for " + name + ": "),
-      "its four-quarter forecasts missed by ", fig(pct(b)), " on average, against ", fig(pct(n)),
-      " for trailing 4Q" + (w == null ? "." : ", and came closer in "), w == null ? "" : fig(pct(w)), w == null ? "" : " of them."]
+      "its four-quarter forecasts missed by ", fig(b), " on average, against ", fig(n),
+      " for trailing 4Q" + (w == null ? "." : ", and came closer in "), w == null ? "" : fig(w), w == null ? "" : " of them."]
       .forEach(function (p) { box.appendChild(typeof p === "string" ? document.createTextNode(p) : p); });
+    box.$prev = nums.map(function (x) { return x[1]; });
+    if (!prev || !introDone) return;
+    nums.forEach(function (x, j) {
+      if (prev[j] != null) tween(prev[j], x[1], ms("--dur-4"), function (v) { x[0].textContent = pct(v); });
+    });
   }
 
-  // Show the tab bar's backdrop and hairline only once it is stuck to the top.
+  // The compact bar slides in once the cards have scrolled off the top, and out again
+  // when they return. While hidden it is inert, so it never takes focus.
   function watchSticky() {
+    var bar = $("cbar");
     if (!window.IntersectionObserver) return;
-    var bar = $("tabbar");
     new IntersectionObserver(function (entries) {
-      var e = entries[0];
-      bar.classList.toggle("stuck", !e.isIntersecting && e.boundingClientRect.top < 0);
-    }).observe($("tabbar-sentinel"));
+      var e = entries[0], show = !e.isIntersecting && e.boundingClientRect.top < 0;
+      bar.classList.toggle("show", show);
+      if (show) { bar.removeAttribute("inert"); placePill($("tabs"), false); }
+      else bar.setAttribute("inert", "");
+    }).observe($("cards"));
+  }
+
+  // A hairline under the compact bar shows how far down the page you are.
+  function watchProgress() {
+    var bar = $("progress"), queued = false;
+    function paint() {
+      queued = false;
+      var max = document.documentElement.scrollHeight - innerHeight;
+      bar.style.transform = "scaleX(" + (max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0) + ")";
+    }
+    window.addEventListener("scroll", function () { if (!queued) { queued = true; requestAnimationFrame(paint); } }, { passive: true });
+    window.addEventListener("resize", paint);
+    paint();
+  }
+
+  /* ---------- backdrop: every company's backlog, behind the title ---------- */
+
+  // Each company's backlog indexed to 100 at its first tagged quarter, on one calendar axis.
+  // It is decoration, hidden from assistive tech; the charts below carry the figures.
+  function renderBackdrop() {
+    var svg = $("backdrop"), W = 600, H = 200;
+    var qi = function (q) { return +q.slice(0, 4) * 4 + +q.slice(5) - 1; };
+    var lo = Infinity, hi = -Infinity, q0 = Infinity, q1 = -Infinity;
+    var series = tickers.map(function (t) {
+      var co = data.companies[t], first = null;
+      return { t: t, pts: co.quarters.map(function (q, i) {
+        var v = co.backlog_usd[i];
+        q0 = Math.min(q0, qi(q)); q1 = Math.max(q1, qi(q));
+        if (v == null) return null;
+        if (first == null) first = v;
+        var x = v / first * 100;
+        lo = Math.min(lo, x); hi = Math.max(hi, x);
+        return [qi(q), x];
+      }) };
+    });
+    var html = "";
+    series.forEach(function (s) {
+      var d = "", pen = false;
+      s.pts.forEach(function (p) {
+        if (!p) { pen = false; return; }
+        var x = (p[0] - q0) / (q1 - q0) * W, y = H - 4 - (p[1] - lo) / (hi - lo) * (H - 8);
+        d += (pen ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+        pen = true;
+      });
+      html += '<path data-t="' + s.t + '" vector-effect="non-scaling-stroke" d="' + d + '"/>';
+    });
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.innerHTML = html;
+  }
+
+  // The selected company's line is drawn last, in the accent colour.
+  function markBackdrop(t) {
+    var svg = $("backdrop");
+    svg.querySelectorAll("path").forEach(function (p) {
+      var on = p.getAttribute("data-t") === t;
+      p.classList.toggle("on", on);
+      if (on) svg.appendChild(p);
+    });
   }
 
   /* ---------- panels ---------- */
@@ -864,7 +1222,7 @@
           lineSet(c, "Revenue, trailing four quarters", co.ttm_revenue_usd.map(toB), c.ink, 2.5, "ttm")
         ]
       },
-      options: baseOptions(c, "u-backlog", "US dollars, billions ($B)", "Quarter")
+      options: linked(baseOptions(c, "u-backlog", "US dollars, billions ($B)", "Quarter"))
     }, {
       $colors: c,
       $crosshair: true,
@@ -881,9 +1239,12 @@
     renderLegend("lg-backlog", ch);
     renderTable("t-backlog", {
       caption: "Backlog and revenue",
-      head: ["Quarter", "Backlog (RPO)", "Revenue, trailing four quarters"],
-      rows: co.quarters.map(function (q, i) { return [q, billions(co.backlog_usd[i]), billions(co.ttm_revenue_usd[i])]; })
+      head: ["Quarter", "Backlog (RPO)", "Revenue, trailing four quarters", "Implied book-to-bill"],
+      rows: co.quarters.map(function (q, i) {
+        return [q, billions(co.backlog_usd[i]), billions(co.ttm_revenue_usd[i]), co.book_to_bill[i] == null ? "n/a" : co.book_to_bill[i].toFixed(2)];
+      })
     });
+    renderBtb(co, c);
 
     var L = co.quarters.length - 1;
     var gaps = co.quarters.filter(function (q, i) { return co.backlog_usd[i] == null; });
@@ -894,7 +1255,56 @@
       (gaps.length ? " Breaks in the backlog line are quarters whose filings tag no backlog for the quarter's own end: " + gaps.join(", ") + "." : "");
   }
 
+  // Charts that share a quarter axis: the same y-axis width, so their plots line up when
+  // stacked, and a crosshair that follows the pointer in any of them.
+  function linked(opts) {
+    opts.scales.y.afterFit = function (scale) { scale.width = 52; };
+    opts.onHover = linkHover;
+    return opts;
+  }
+
+  // Implied book-to-bill under the backlog chart, quarter for quarter: a bar up from 1
+  // when backlog grew in the quarter, down from 1 when it shrank.
+  function renderBtb(co, c) {
+    var v = co.book_to_bill;
+    var fills = v.map(function (x) { return x == null ? c.track : x >= 1 ? fade(c.accent, 0.75) : c.drift; });
+    var opts = linked(baseOptions(c, "u-btb", "Implied book-to-bill, each quarter", ""));
+    opts.scales.x.ticks.display = false;
+    opts.scales.x.border = { color: c.line };
+    opts.scales.y.ticks.maxTicksLimit = 3;
+    opts.scales.y.ticks.callback = function (x) { return x.toFixed(1); };
+    opts.scales.y.suggestedMin = 0.5;
+    opts.scales.y.suggestedMax = 1.5;
+    var shown = v.filter(function (x) { return x != null; });
+    upsert("c-btb", {
+      type: "bar",
+      data: {
+        labels: co.quarters,
+        datasets: [{
+          data: v.map(function (x) { return x == null ? null : [1, x]; }),
+          backgroundColor: fills, hoverBackgroundColor: fills,
+          borderRadius: 2, borderSkipped: false, barPercentage: 0.7, categoryPercentage: 0.9
+        }]
+      },
+      options: opts
+    }, {
+      $colors: c,
+      $crosshair: true,
+      $clipReveal: true,
+      $baseline: 1,
+      $tip: function (pts) {
+        var i = pts[0].dataIndex;
+        if (v[i] == null) return null;
+        return { title: co.quarters[i], rows: [{ color: fills[i], label: "Implied book-to-bill", value: v[i].toFixed(2) }] };
+      }
+    });
+    var L = co.quarters.length - 1, up = shown.filter(function (x) { return x >= 1; }).length;
+    $("c-btb").setAttribute("aria-label", co.ticker + " implied book-to-bill by quarter: at or above 1 in " + up + " of " + shown.length +
+      " quarters" + (v[L] == null ? "." : ", and " + v[L].toFixed(2) + " at " + co.quarters[L] + "."));
+  }
+
   function renderForecast(co, c) {
+    stopReplay();
     var v = state.view, block = co[v];
     var actual = block.actual_usd;
     var toB = function (x) { return x == null ? null : x / 1e9; };
@@ -915,16 +1325,20 @@
       datasets.push(ds);
     });
 
+    var worstMark = { index: worst, ds: 1, ref: 0, label: worst >= 0 ? pct(apes.backlog[worst]) : "" };
     var ch = upsert("c-fc", {
       type: "line",
       data: { labels: block.target, datasets: datasets },
-      options: baseOptions(c, "u-fc", v === "h1" ? "Quarterly revenue, $B" : "Revenue over four quarters, $B",
-        v === "h1" ? "Quarter forecast" : "Last quarter of the four forecast")
+      options: linked(baseOptions(c, "u-fc", v === "h1" ? "Quarterly revenue, $B" : "Revenue over four quarters, $B",
+        v === "h1" ? "Quarter forecast" : "Last quarter of the four forecast"))
     }, {
       $colors: c,
       $crosshair: true,
       $ends: true,
-      $miss: { index: worst, ds: 1, ref: 0, label: worst >= 0 ? pct(apes.backlog[worst]) : "" },
+      $band: true,
+      $upto: null,
+      $miss: worstMark,
+      $worst: worstMark,
       $tip: function (pts) {
         var i = pts[0].dataIndex;
         return {
@@ -940,6 +1354,7 @@
       }
     });
     renderLegend("lg-fc", ch);
+    setupReplay(block, apes, v);
     renderTable("t-fc", {
       caption: "Forecast against actual",
       head: [v === "h1" ? "Quarter forecast" : "Last quarter of the four forecast", "Actual"].concat(MODELS.map(function (m) { return NAMES[v][m]; })),
@@ -966,6 +1381,152 @@
     });
   }
 
+  /* ---------- replay the backtest ---------- */
+
+  // The forecast chart can be played back in the order the forecasts were made. A head
+  // moves along the quarters, everything after it is hidden (Actual stays as a faint
+  // track), and the running average miss of each method updates as it goes.
+  var replay = { at: null, raf: 0, playing: false, n: 0, k: -1, rows: null };
+  var PLAY_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4.5 2.8v10.4L13 8z" fill="currentColor"/></svg>';
+  var PAUSE_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4 3h3v10H4zM9 3h3v10H9z" fill="currentColor"/></svg>';
+
+  function setupReplay(block, apes, view) {
+    replay.block = block;
+    replay.apes = apes;
+    replay.view = view;
+    replay.n = block.target.length;
+    replay.k = null;    // forces the first readout
+    var box = $("replay-out");
+    box.textContent = "";
+    replay.title = el("div", "ro-title");
+    box.appendChild(replay.title);
+    var c = colors();
+    replay.rows = {};
+    MODELS.forEach(function (m) {
+      var row = el("div", "ro-row");
+      var sw = el("span", "ro-sw");
+      sw.style.background = modelColor(c, m);
+      row.appendChild(sw);
+      row.appendChild(el("span", "ro-name", NAMES[view][m]));
+      var bar = el("span", "ro-bar"), fill = el("i", "");
+      fill.style.background = modelColor(c, m);
+      bar.appendChild(fill);
+      bar.setAttribute("aria-hidden", "true");
+      row.appendChild(bar);
+      var val = el("span", "ro-val");
+      row.appendChild(val);
+      box.appendChild(row);
+      replay.rows[m] = { row: row, fill: fill, val: val };
+    });
+    var scrub = $("scrub");
+    scrub.min = 0;
+    scrub.max = Math.max(0, replay.n - 1);
+    scrub.step = 1;
+    $("play").hidden = still();
+    setHead(null);
+    syncPlay();
+  }
+
+  // Move the head to a forecast index, fractional while it travels, or to null for the
+  // whole record with its largest miss marked.
+  function setHead(u) {
+    var ch = charts["c-fc"];
+    if (!ch || !replay.n) return;
+    replay.at = u;
+    var k = u == null ? replay.n - 1 : Math.floor(u + 1e-6);
+    ch.$upto = u;
+    ch.$headLabel = u == null ? "" : replay.block.target[k];
+    ch.$miss = u == null ? ch.$worst : {
+      index: k, ds: 1, ref: 0, label: replay.apes.backlog[k] == null ? "" : pct(replay.apes.backlog[k])
+    };
+    ch.draw();
+    var scrub = $("scrub");
+    scrub.value = k;
+    scrub.style.setProperty("--p", replay.n > 1 ? k / (replay.n - 1) : 1);
+    scrub.setAttribute("aria-valuetext", u == null ? "All forecasts" : "Forecasts up to " + replay.block.target[k]);
+    var key = u == null ? -1 : k;
+    if (key !== replay.k) { replay.k = key; writeReplay(k, u == null); }
+  }
+
+  function writeReplay(k, all) {
+    replay.title.textContent = all ? "Average miss, every forecast" : "Average miss, forecasts up to " + replay.block.target[k];
+    var means = {}, top = 0, best = null;
+    MODELS.forEach(function (m) {
+      var sum = 0, n = 0;
+      for (var i = 0; i <= k; i++) { var a = replay.apes[m][i]; if (a != null) { sum += a; n++; } }
+      means[m] = n ? sum / n : null;
+      if (means[m] != null) {
+        top = Math.max(top, means[m]);
+        if (best == null || means[m] < means[best]) best = m;
+      }
+    });
+    MODELS.forEach(function (m) {
+      var r = replay.rows[m], v = means[m];
+      r.val.textContent = v == null ? "not yet" : pct(v);
+      r.fill.style.transform = "scaleX(" + (v == null || !top ? 0 : v / top) + ")";
+      r.row.classList.toggle("best", m === best);
+    });
+  }
+
+  function syncPlay() {
+    var b = $("play"), mid = replay.at != null && replay.at < replay.n - 1;
+    b.innerHTML = replay.playing ? PAUSE_ICON : PLAY_ICON;
+    b.appendChild(el("span", "", replay.playing ? "Pause" : mid ? "Continue" : "Replay the backtest"));
+    b.setAttribute("aria-pressed", replay.playing ? "true" : "false");
+    $("replay").classList.toggle("on", replay.at != null);
+  }
+
+  function play() {
+    if (replay.playing) { pause(); return; }
+    if (still() || replay.n < 2) return;
+    var from = replay.at == null || replay.at >= replay.n - 1 ? 0 : replay.at, t0 = null;
+    replay.playing = true;
+    $("replay-out").setAttribute("aria-busy", "true");
+    syncPlay();
+    function frame(now) {
+      if (t0 == null) t0 = now;
+      var u = Math.min(replay.n - 1, from + (now - t0) / REPLAY_STEP_MS);
+      setHead(u);
+      if (u < replay.n - 1) { replay.raf = requestAnimationFrame(frame); return; }
+      replay.playing = false;
+      $("replay-out").removeAttribute("aria-busy");
+      setHead(null);
+      syncPlay();
+    }
+    replay.raf = requestAnimationFrame(frame);
+  }
+
+  // Stop where the head is, on the forecast it has reached.
+  function pause() {
+    cancelAnimationFrame(replay.raf);
+    replay.playing = false;
+    $("replay-out").removeAttribute("aria-busy");
+    if (replay.at != null) setHead(Math.floor(replay.at + 1e-6));
+    syncPlay();
+  }
+
+  // A new company or horizon ends any replay; renderForecast then redraws the whole record.
+  function stopReplay() {
+    cancelAnimationFrame(replay.raf);
+    replay.playing = false;
+    replay.at = null;
+    $("replay-out").removeAttribute("aria-busy");
+  }
+
+  function watchReplay() {
+    $("play").addEventListener("click", play);
+    $("scrub").addEventListener("input", function () {
+      if (replay.playing) {
+        cancelAnimationFrame(replay.raf);
+        replay.playing = false;
+        $("replay-out").removeAttribute("aria-busy");
+      }
+      var k = +$("scrub").value;
+      setHead(k >= replay.n - 1 ? null : k);
+      syncPlay();
+    });
+  }
+
   // Name the bigger of the backlog and conversion effects only when it is at least twice
   // the other; closer than that, say they were about even.
   function driver(bk, cv) {
@@ -979,16 +1540,54 @@
       : "The bigger driver was turning " + (cv >= 0 ? "more" : "less") + " of the backlog into revenue. ";
   }
 
+  // The bridge's years as a segmented control, rebuilt only when the company's years change.
+  // Arrow keys step through the years, Home and End jump to the ends.
+  function renderYears(co, years) {
+    var box = $("years"), key = years.join(",");
+    if (box.$key !== key) {
+      box.$key = key;
+      box.textContent = "";
+      years.forEach(function (y) {
+        var b = el("button", "wash");
+        b.type = "button";
+        b.dataset.year = y;
+        twoTone(b, String(y));
+        b.addEventListener("click", function () {
+          if (state.year === y) return;
+          state.year = y;
+          renderBridge(data.companies[state.ticker], colors());
+        });
+        box.appendChild(b);
+      });
+      addPill(box);
+      if (!box.$keys) {
+        box.$keys = true;
+        box.addEventListener("keydown", function (e) {
+          var list = data.companies[state.ticker].bridge.map(function (r) { return r.year; });
+          var i = list.indexOf(state.year), j = i;
+          if (e.key === "ArrowRight") j = Math.min(list.length - 1, i + 1);
+          else if (e.key === "ArrowLeft") j = Math.max(0, i - 1);
+          else if (e.key === "Home") j = 0;
+          else if (e.key === "End") j = list.length - 1;
+          else return;
+          e.preventDefault();
+          if (j === i) return;
+          state.year = list[j];
+          renderBridge(data.companies[state.ticker], colors());
+          box.querySelector('[data-year="' + state.year + '"]').focus();
+        });
+      }
+    }
+    box.querySelectorAll("button").forEach(function (b) {
+      b.setAttribute("aria-pressed", +b.dataset.year === state.year ? "true" : "false");
+    });
+    placePill(box, introDone);
+  }
+
   function renderBridge(co, c) {
-    var sel = $("year");
     var years = co.bridge.map(function (r) { return r.year; });
     if (state.year == null || years.indexOf(state.year) < 0) state.year = years[years.length - 1];
-    sel.innerHTML = "";
-    years.forEach(function (y) {
-      var o = document.createElement("option");
-      o.value = y; o.textContent = y; o.selected = y === state.year;
-      sel.appendChild(o);
-    });
+    renderYears(co, years);
     var r = co.bridge.filter(function (x) { return x.year === state.year; })[0];
     var steps = [r.backlog_effect_usd, r.conversion_effect_usd, r.interaction_usd];
     var level = r.revenue_prior_usd, bars = [[0, r.revenue_prior_usd]], kinds = ["total"];
@@ -1148,6 +1747,23 @@
     $("grid").querySelectorAll("th[data-s], th[data-f]").forEach(function (th) {
       th.classList.toggle("hv", th.dataset.s != null ? s != null && +th.dataset.s === s : f != null && +th.dataset.f === f);
     });
+    previewFan(s, f);
+  }
+
+  // Pointing at a grid cell lifts that scenario's line out of the fan.
+  function previewFan(s, f) {
+    var ch = charts["c-fan"];
+    if (!ch || !ch.$cells) return;
+    var i = s == null ? null : ch.$cells[s + "|" + f];
+    if (i === undefined) i = null;
+    if (ch.$preview === i) return;
+    ch.$preview = i;
+    ch.data.datasets.forEach(function (ds, j) {
+      if (ds.key !== "s") return;
+      ds.borderColor = j === i ? fade(ch.$colors.accent, 0.6) : ds.$color;
+      ds.borderWidth = j === i ? 2 : 1;
+    });
+    ch.update("none");
   }
 
   // Move the selection ring over the chosen cell. offsetLeft ignores the press scale.
@@ -1228,6 +1844,93 @@
       th.classList.toggle("hl", th.dataset.s != null ? +th.dataset.s === state.shock : +th.dataset.f === state.shift);
     });
     moveRing(introDone);
+    renderFan(co, c, shocks, shifts, cell);
+  }
+
+  function nextQuarter(q, n) {
+    var k = +q.slice(5) - 1 + n;
+    return (+q.slice(0, 4) + Math.floor(k / 4)) + "Q" + (k % 4 + 1);
+  }
+
+  // Trailing four-quarter revenue up to the latest quarter, then every scenario as a line
+  // to the quarter four ahead. Trailing revenue at that quarter is exactly the scenario's
+  // revenue over the next four, so each line ends at its own figure.
+  function renderFan(co, c, shocks, shifts, cell) {
+    var L = co.quarters.length - 1, H = Math.min(8, L + 1), start = L - H + 1;
+    var labels = co.quarters.slice(start).concat([1, 2, 3, 4].map(function (n) { return nextQuarter(co.quarters[L], n); }));
+    var at = H - 1, end = labels.length - 1, ttm = co.ttm_revenue_usd[L];
+    var toB = function (v) { return v == null ? null : v / 1e9; };
+    var path = function (v) {
+      var d = labels.map(function () { return null; });
+      d[at] = toB(ttm);
+      d[end] = toB(v);
+      return d;
+    };
+    var hist = lineSet(c, "Revenue, trailing four quarters", co.ttm_revenue_usd.slice(start).map(toB).concat([null, null, null, null]), c.ink, 2.5, "ttm");
+    hist.order = 0;
+    var datasets = [hist], all = [], cells = {};
+    shocks.forEach(function (s) {
+      shifts.forEach(function (f) {
+        var v = cell(s, f);
+        all.push(v);
+        if (s === 0 && f === 0) return;
+        var ds = lineSet(c, "Scenario", path(v), fade(c.muted, 0.22), 1, "s");
+        ds.spanGaps = true;
+        ds.order = 3;
+        ds.pointHitRadius = 0;
+        ds.pointHoverRadius = 0;
+        cells[s + "|" + f] = datasets.length;
+        datasets.push(ds);
+      });
+    });
+    var base = cell(0, 0), val = cell(state.shock, state.shift);
+    var none = lineSet(c, "No change", path(base), c.ink, 1.5, "base");
+    none.borderDash = [5, 4];
+    none.spanGaps = true;
+    none.order = 2;
+    var sel = lineSet(c, "Selected scenario", path(val), c.accent, 2.75, "sel");
+    sel.spanGaps = true;
+    sel.order = 1;
+    datasets.push(none, sel);
+    var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all), isBase = state.shock === 0 && state.shift === 0;
+
+    var opts = baseOptions(c, "u-fan", "Revenue over four quarters, $B", "");
+    opts.scales.y.ticks.maxTicksLimit = 5;
+    upsert("c-fan", { type: "line", data: { labels: labels, datasets: datasets }, options: opts }, {
+      $colors: c,
+      $crosshair: true,
+      $ends: true,
+      $endKeys: isBase ? ["sel"] : ["base", "sel"],
+      $future: at,
+      $futureLabel: "Next four quarters",
+      $cells: cells,
+      $preview: null,
+      $tip: function (pts) {
+        var i = pts[0].dataIndex;
+        if (i <= at) {
+          return { title: labels[i], rows: [{ color: c.ink, label: "Revenue, trailing four quarters", value: billions(co.ttm_revenue_usd[start + i]) }] };
+        }
+        if (i !== end) return null;
+        var rows = [{ color: c.accent, label: "Selected scenario", value: billions(val) }];
+        if (!isBase) rows.push({ color: c.ink, label: "No change", value: billions(base) });
+        rows.push({ color: fade(c.muted, 0.5), label: "Lowest to highest", value: billions(mn) + " to " + billions(mx) });
+        return { title: "Four quarters to " + labels[end], rows: rows };
+      }
+    });
+    var cap = co.ticker + " revenue over the four quarters to " + co.quarters[L] + " was " + billions(ttm) +
+      ". The " + all.length + " scenarios for the four quarters to " + labels[end] + " run from " + billions(mn) +
+      " to " + billions(mx) + "; the selected one is " + billions(val) + ".";
+    $("c-fan").setAttribute("aria-label", cap);
+    renderTable("t-fan", {
+      caption: $("fan-title").textContent,
+      head: ["", "Revenue over four quarters, $B"],
+      rows: co.ttm_revenue_usd.slice(start).map(function (v, i) { return [labels[i], billions(v)]; }).concat([
+        [labels[end] + ", selected scenario", billions(val)],
+        [labels[end] + ", no change", billions(base)],
+        [labels[end] + ", lowest scenario", billions(mn)],
+        [labels[end] + ", highest scenario", billions(mx)]
+      ])
+    });
   }
 
   function renderCompany() {
@@ -1236,6 +1939,73 @@
     renderForecast(co, c);
     renderBridge(co, c);
     renderWhatIf(co, c);
+  }
+
+  /* ---------- light and dark ---------- */
+
+  var SUN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+  var MOON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M13.2 10.1A5.6 5.6 0 0 1 5.9 2.8a5.6 5.6 0 1 0 7.3 7.3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+
+  function isDark() {
+    var t = document.documentElement.getAttribute("data-theme");
+    return t ? t === "dark" : darkMode.matches;
+  }
+
+  // The button shows the theme it switches to. A chosen theme also sets the browser's
+  // own bar colour, which otherwise follows the system setting.
+  function syncTheme() {
+    var b = $("theme"), dark = isDark();
+    b.innerHTML = dark ? SUN : MOON;
+    b.setAttribute("aria-label", dark ? "Use the light theme" : "Use the dark theme");
+    b.title = dark ? "Light theme" : "Dark theme";
+    if (document.documentElement.hasAttribute("data-theme")) {
+      document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.setAttribute("content", css("--bg")); });
+    }
+  }
+
+  function watchTheme(rerender) {
+    syncTheme();
+    $("theme").addEventListener("click", function () {
+      var next = isDark() ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("dbf-theme", next); } catch (e) { /* the choice lasts for this visit only */ }
+      syncTheme();
+      rerender();
+    });
+  }
+
+  /* ---------- keyboard shortcuts ---------- */
+
+  // 1 to 5 pick a company and R plays or pauses the replay. They stand aside while a
+  // text field, slider or menu has focus, and whenever a modifier key is held.
+  function watchKeys() {
+    document.addEventListener("keydown", function (e) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      var t = e.target, tag = t && t.tagName;
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || (t && t.isContentEditable)) return;
+      var n = /^[1-9]$/.test(e.key) ? +e.key : 0;
+      if (n && n <= tickers.length) {
+        var onCard = document.activeElement && document.activeElement.closest && document.activeElement.closest("#cards");
+        selectTicker(tickers[n - 1], true);
+        if (onCard) $("tab-" + tickers[n - 1]).focus();
+        return;
+      }
+      if (e.key === "r" || e.key === "R") {
+        var r = $("replay").getBoundingClientRect(), away = r.top < 0 || r.bottom > innerHeight;
+        if (still()) {
+          // No animation: rewind to the first forecast and hand the scrubber the keyboard,
+          // so the arrow keys step through the backtest instead.
+          if (away) $("fc-title").closest(".panel").scrollIntoView({ block: "start" });
+          var s = $("scrub");
+          s.value = s.min;
+          s.dispatchEvent(new Event("input"));
+          s.focus();
+          return;
+        }
+        if (away) $("fc-title").closest(".panel").scrollIntoView({ block: "start", behavior: "smooth" });
+        play();
+      }
+    });
   }
 
   /* ---------- URL state: #LMT?view=h4&shock=-5&shift=1.5 ---------- */
@@ -1278,6 +2048,8 @@
     Chart.register(theme);
     readUrl();
     renderHeader();
+    renderBackdrop();
+    renderCards();
     renderTabs();
 
     var seg = $("seg");
@@ -1293,10 +2065,6 @@
     });
     addPill(seg);
 
-    $("year").addEventListener("change", function () {
-      state.year = +$("year").value;
-      renderBridge(data.companies[state.ticker], colors());
-    });
     window.addEventListener("hashchange", function () {
       var h = location.hash.replace("#", "").toUpperCase();
       if (tickers.indexOf(h) >= 0 && h !== state.ticker) selectTicker(h, false);
@@ -1306,7 +2074,10 @@
       renderCompany();
       if (still()) revealAll();
     };
-    if (darkMode.addEventListener) { darkMode.addEventListener("change", rerender); reduceMotion.addEventListener("change", rerender); }
+    if (darkMode.addEventListener) {
+      darkMode.addEventListener("change", function () { syncTheme(); rerender(); });
+      reduceMotion.addEventListener("change", rerender);
+    }
     if (window.ResizeObserver) new ResizeObserver(function () { moveRing(false); }).observe($("grid-wrap"));
     $("grid").addEventListener("keydown", gridKeys);
     $("reset").addEventListener("click", function () {
@@ -1318,10 +2089,14 @@
     watchInfo();
     watchTables();
     watchDensity();
+    watchReplay();
+    watchTheme(rerender);
+    watchKeys();
 
     selectTicker(state.ticker, false);
     placePill(seg, false);
     watchSticky();
+    watchProgress();
     requestAnimationFrame(function () {
       ready();
       watchCharts();

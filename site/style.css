@@ -81,9 +81,10 @@
 }
 
 /* Spacing, type, radii and motion are the same in both schemes. Everything
-   that carries colour or depth is redefined here for dark mode. */
+   that carries colour or depth is redefined here for dark mode: by the system
+   setting unless the reader has chosen light, or by the reader's choice of dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #151514;
     --bar-bg: rgba(21, 21, 20, 0.84);
     --surface: #1b1b19;
@@ -113,6 +114,38 @@
 
     color-scheme: dark;
   }
+}
+
+/* The same dark tokens, when the reader picks dark with the theme button. */
+:root[data-theme="dark"] {
+  --bg: #151514;
+  --bar-bg: rgba(21, 21, 20, 0.84);
+  --surface: #1b1b19;
+  --track: #252522;
+  --track-strong: #3a3935;
+  --ink: #ecebe7;
+  --ink-2: #d7d5cf;
+  --on-ink: #151514;
+  --muted: #a6a39c;
+  --line: #34332f;
+  --line-strong: #4a4843;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.12);
+  --grid: #282724;
+  --crosshair: rgba(236, 235, 231, 0.3);
+  --accent: #e0703f;
+  --accent-soft: rgba(224, 112, 63, 0.16);
+  --accent-line: rgba(224, 112, 63, 0.4);
+  --naive: #6f6f6f;
+  --drift: #a8a8a8;
+  --hover: rgba(236, 235, 231, 0.07);
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a6a39c' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 18px -6px rgba(0, 0, 0, 0.45), 0 20px 40px -18px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 2px 6px rgba(0, 0, 0, 0.4), 0 12px 28px -8px rgba(0, 0, 0, 0.5), 0 28px 56px -18px rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
 }
 
 /* ---------- base ---------- */
@@ -184,7 +217,39 @@ button { -webkit-tap-highlight-color: transparent; }
   padding-top: var(--space-5);
   padding-bottom: var(--space-10);
 }
-.head-main { grid-area: main; padding-top: var(--space-2); }
+.head-main { grid-area: main; padding-top: var(--space-2); position: relative; isolation: isolate; }
+
+/* Every company's backlog, indexed, drawn faintly behind the title. It fades out towards
+   the reading edge so it never sits hard behind the words. */
+.backdrop {
+  position: absolute;
+  z-index: -1;
+  right: calc(-1 * var(--space-4));   /* the page gutter: any further and it pokes past the screen edge */
+  bottom: calc(-1 * var(--space-4));
+  width: 78%;
+  height: 72%;
+  overflow: visible;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 20%, #000 70%), linear-gradient(0deg, transparent, #000 30%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent 20%, #000 70%), linear-gradient(0deg, transparent, #000 30%);
+  mask-composite: intersect;
+  clip-path: inset(0 0 0 0);
+}
+.backdrop path {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.55;
+  transition: stroke var(--dur-3) var(--ease-in-out), opacity var(--dur-3) var(--ease-in-out);
+}
+.backdrop path.on { stroke: var(--accent); stroke-width: 2; opacity: 0.5; }
+/* It draws in from the left once, after the title has arrived. */
+.ready .backdrop { animation: sweep 1400ms var(--ease-out) 200ms both; }
+.intro-done .backdrop { animation: none; }
+@keyframes sweep { from { clip-path: inset(0 100% 0 0); } }
 
 h1 {
   font-family: var(--font-serif);
@@ -335,22 +400,49 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
 .tile .sub .flag { display: block; font-weight: 600; }
 .tile.win { margin-top: var(--space-1); border-top-color: var(--hairline-strong); }
 
+/* Each company's own figure, as a dot on the tile's bar. The selected company's is filled. */
+.co-dot {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--c);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: transform var(--dur-2) var(--ease-out), opacity var(--dur-3) var(--ease-out), left var(--dur-3) var(--ease-in-out);
+}
+.co-dot::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
+.co-dot.on { background: var(--c); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--c); }
+/* Its ticker and figure, on hover. */
+.co-dot::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--on-ink);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, 2px);
+  transition: opacity var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .co-dot:hover { transform: translate(-50%, -50%) scale(1.25); z-index: 2; }
+  .co-dot:hover::after { opacity: 1; transform: translate(-50%, 0); }
+}
+.dots-key { margin: var(--space-1) 0 var(--space-3); font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted); }
+
 /* ---------- segmented controls: company tabs and horizon toggle ---------- */
 
-.tabbar-sentinel { height: 1px; }
-
-.tabbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) 0;
-  margin-bottom: var(--space-3);
-}
-/* How the backlog model did for the selected company, under the tabs. */
+/* How the backlog model did for the selected company, under the cards. */
 .verdict {
   font-size: var(--fs-md);
   line-height: var(--lh-md);
@@ -362,7 +454,7 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
 .verdict:empty { display: none; }
 .verdict strong { color: var(--ink); font-weight: 600; }
 .verdict .num { font-weight: 650; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
-/* The selected company's full name, beside the ticker tabs. */
+/* The selected company's full name, beside the compact bar's tickers. */
 .co-name {
   font-family: var(--font-serif);
   font-size: var(--fs-md);
@@ -370,26 +462,6 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   font-weight: 700;
   color: var(--ink);
 }
-.tabbar::before, .tabbar::after {
-  content: "";
-  position: absolute;
-  left: calc(50% - 50vw);
-  right: calc(50% - 50vw);
-  opacity: 0;
-  transition: opacity var(--dur-2) var(--ease-in-out);
-  pointer-events: none;
-}
-.tabbar::before {
-  top: 0;
-  bottom: 0;
-  z-index: -1;
-  background: var(--bar-bg);
-  -webkit-backdrop-filter: saturate(1.4) blur(10px);
-  backdrop-filter: saturate(1.4) blur(10px);
-}
-.tabbar::after { bottom: 0; height: 1px; background: var(--hairline-strong); }
-.tabbar.stuck::before, .tabbar.stuck::after { opacity: 1; }
-
 .tabs, .seg {
   position: relative;
   display: inline-grid;
@@ -420,7 +492,7 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
 .tabs button { font-size: var(--fs-sm); line-height: var(--lh-sm); letter-spacing: 0.04em; padding: 6px var(--space-4); }
 .seg button { font-size: var(--fs-xs); line-height: var(--lh-xs); letter-spacing: var(--ls-xs); padding: 5px var(--space-3); }
 .tabs button:active, .seg button:active, .chip:active, .grid td button:active, .pick select:active { transform: scale(0.98); }
-.tabs button[aria-selected="true"]::after, .seg button[aria-pressed="true"]::after { opacity: 0; }
+.tabs button[aria-pressed="true"]::after, .seg button[aria-pressed="true"]::after { opacity: 0; }
 
 /* Each label is drawn twice; the light copy fades in over the sliding pill.
    The empty alternative text keeps the copy out of the accessible name. */
@@ -439,7 +511,7 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   pointer-events: none;
 }
 [aria-selected="true"] > .lbl, [aria-pressed="true"] > .lbl { opacity: 0; }
-.tabs button[aria-selected="true"]::before, .seg button[aria-pressed="true"]::before { opacity: 1; }
+.tabs button[aria-pressed="true"]::before, .seg button[aria-pressed="true"]::before { opacity: 1; }
 
 .pill {
   position: absolute;
@@ -454,6 +526,170 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   transition: transform var(--dur-2) var(--ease-in-out);
   pointer-events: none;
 }
+
+/* ---------- company cards: the tabs, each with a small record of its own ---------- */
+
+.cos { margin-bottom: var(--space-5); }
+.cos-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.keys { margin: 0; font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted); }
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 4px;
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+}
+
+.cards {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+}
+.card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr);   /* let the card shrink to its share of the row */
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4) var(--space-3);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+  transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out);
+}
+@media (hover: hover) {
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+}
+.card:active { transform: translateY(0) scale(0.99); }
+.card[aria-selected="false"] { background: color-mix(in oklab, var(--surface) 55%, var(--bg)); }
+.card[aria-selected="false"] .spark { opacity: 0.7; }
+.card[aria-selected="true"] { border-color: var(--accent-line); box-shadow: var(--shadow-2); }
+.card-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px var(--space-2); }
+.card-tk {
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.card-name {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-spark { display: block; height: 40px; margin: var(--space-2) 0 var(--space-1); }
+.spark { display: block; width: 100%; height: 100%; overflow: visible; transition: opacity var(--dur-2) var(--ease-in-out); }
+.sp-area { fill: var(--accent-soft); stroke: none; }
+.sp-bl, .sp-rev { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.sp-bl { stroke: var(--accent); stroke-width: 1.75; }
+.sp-rev { stroke: var(--ink); stroke-width: 1.5; }
+.card-cov { font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted); }
+.card-cov strong { color: var(--ink); font-weight: 650; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px var(--space-2) 1px 6px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  line-height: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.up { color: color-mix(in oklab, var(--accent) 72%, var(--ink)); background: var(--accent-soft); }
+.badge.down { color: var(--muted); background: var(--track); }
+
+/* Under the cards, an accent rule slides to the selected one. */
+.cards > .pill {
+  top: auto;
+  bottom: 0;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  box-shadow: none;
+}
+
+/* ---------- compact bar: the company switch and reading progress, once the cards are gone ---------- */
+
+.cbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  backdrop-filter: saturate(1.4) blur(10px);
+  box-shadow: 0 1px 0 var(--hairline-strong);
+  transform: translateY(-100%);
+  visibility: hidden;
+  transition: transform var(--dur-3) var(--ease-out), visibility 0s linear var(--dur-3);
+}
+.cbar.show { transform: none; visibility: visible; transition: transform var(--dur-3) var(--ease-out), visibility 0s; }
+.cbar-in { display: flex; align-items: center; gap: var(--space-4); padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.progress i {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+/* Panels land below the compact bar when the page scrolls to them. */
+.panel { scroll-margin-top: 72px; }
+
+/* Changing company: the words settle in while the charts morph. */
+.swap .note, .swap .caption, .swap .big-context, .swap .big-delta, .verdict.swap {
+  animation: settle var(--dur-3) var(--ease-out);
+}
+@keyframes settle { from { opacity: 0.25; transform: translateY(3px); } }
+
+/* ---------- light and dark switch ---------- */
+
+.theme {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -6px -4px -6px var(--space-1);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  align-self: center;
+}
+.theme:hover { color: var(--ink); }
+.theme svg { display: block; }
 
 /* ---------- panels ---------- */
 
@@ -558,6 +794,15 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
 /* Tall enough that forecasts a few $B apart separate clearly. */
 .chart { position: relative; height: 360px; }
 
+/* Implied book-to-bill: a short strip under the backlog chart, on the same quarters. */
+.btb-head { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-4); }
+.btb-head .unit { margin-bottom: 0; height: auto; }
+.chart.chart-btb { height: 110px; margin-top: var(--space-1); }
+
+/* The bridge's years, as a segmented control that can hold a few more years. */
+.seg.years { grid-auto-columns: minmax(48px, 1fr); max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.seg.years::-webkit-scrollbar { display: none; }
+
 .unit {
   height: calc(var(--fs-xs) * var(--lh-xs));
   margin-bottom: var(--space-2);
@@ -650,13 +895,78 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
 }
 .tip-note strong { color: var(--ink); font-weight: 600; }
 
+/* ---------- replay the backtest ---------- */
+
+.replay {
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  transition: border-color var(--dur-2) var(--ease-in-out);
+}
+.replay.on { border-color: var(--accent-line); }
+.replay-ctl { display: flex; align-items: center; gap: var(--space-3); }
+.play {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-weight: 600;
+  color: var(--on-ink);
+  background: var(--ink);
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 6px var(--space-3) 6px 10px;
+  cursor: pointer;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.play[hidden] { display: none; }
+.play[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.play:active { transform: scale(0.97); }
+.play svg { display: block; }
+.scrub { flex: 1; min-width: 0; height: 24px; margin: 0; }
+
+.replay-out { margin-top: var(--space-3); display: grid; gap: 6px; }
+.ro-title { font-size: var(--fs-xs); line-height: var(--lh-xs); font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ro-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) minmax(48px, 0.8fr) 3.6em;
+  align-items: center;
+  column-gap: var(--space-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--muted);
+}
+.ro-sw { width: 8px; height: 8px; border-radius: 2px; }
+.ro-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ro-bar { position: relative; height: 4px; border-radius: 2px; background: var(--track); }
+.ro-bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.ro-val { text-align: right; font-weight: 600; color: var(--ink-2); }
+.ro-row.best .ro-name, .ro-row.best .ro-val { color: var(--ink); font-weight: 650; }
+
 /* ---------- what if ---------- */
 
 .fig.whatif {
-  grid-template-areas: "head ctls" "big grid";
-  grid-template-rows: auto 1fr;
+  grid-template-areas: "head ctls" "big grid" "fan fan";
+  grid-template-rows: auto 1fr auto;
   row-gap: var(--space-6);
 }
+/* The scenario fan runs the full width of the panel, under the readout and the grid. */
+.whatif .fan { grid-area: fan; min-width: 0; padding-top: var(--space-5); border-top: 1px solid var(--hairline); }
+.whatif .fan .big-label { margin-bottom: var(--space-3); }
+.whatif .fan .chart { height: 260px; }
+.fan-note { margin: var(--space-2) 0 0; font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--muted); max-width: 80ch; }
 .whatif .controls { grid-area: ctls; align-self: end; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5) var(--space-8); }
 .whatif .controls .ticks { margin-bottom: 0; }
 /* The scenario readout is an instrument, so it sits on a recessed surface of its own. */
@@ -900,14 +1210,32 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   .chart { height: 320px; }
   .fig, .fig.whatif { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
   .fig { grid-template-areas: "head" "main" "cap"; }
-  .fig.whatif { grid-template-areas: "head" "ctls" "big" "grid"; row-gap: var(--space-5); }
+  .fig.whatif { grid-template-areas: "head" "ctls" "big" "grid" "fan"; row-gap: var(--space-5); }
   .fig .row { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; }
   .fig .legend { flex-direction: row; flex-wrap: wrap; gap: 0 var(--space-1); }
+  .replay { margin-bottom: var(--space-5); }
   .panel.method { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+}
+
+/* Narrow: the cards keep the ticker, the small chart and a badge dot. Five full cards
+   need about 860px; below that they would run off the side. */
+@media (max-width: 860px) {
+  .cards { gap: var(--space-2); }
+  .card { padding: var(--space-2) var(--space-2) var(--space-2) 10px; border-radius: var(--radius-md); }
+  .card-name, .card-cov, .badge-txt { display: none; }
+  .badge { padding: 0; background: none; }
+  .badge-dot { width: 7px; height: 7px; }
+  .card-tk { font-size: var(--fs-md); }
+  .card-spark { height: 28px; margin: var(--space-1) 0 0; }
+  .keys { display: none; }
+  .backdrop { width: 100%; height: 55%; }
 }
 
 @media (max-width: 520px) {
   .head { padding-bottom: var(--space-6); row-gap: var(--space-6); }
+  .cbar-in { gap: var(--space-3); }
+  .cbar .co-name { display: none; }
+  .whatif .fan .chart { height: 220px; }
   .meta { flex-direction: column; align-items: flex-start; }
   .meta > .dot { display: none; }
   .meta .links { margin-left: 0; margin-top: var(--space-1); }
@@ -920,6 +1248,7 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   .method li { grid-template-columns: var(--space-6) minmax(0, 1fr); font-size: var(--fs-sm); }
   .method p { margin-left: var(--space-6); }
   .chart { height: 280px; }
+  .chart.chart-btb { height: 90px; }
   .grid { border-spacing: 2px; width: calc(100% + 4px); margin: 0 -2px; }
   .grid td button { height: 34px; font-size: calc(var(--fs-xs) - 1px); letter-spacing: -0.02em; }
   .grid thead th:first-child { width: 3em; }
@@ -932,6 +1261,8 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   .tabs button:active, .seg button:active, .chip:active, .grid td button:active, .pick select:active, .info:active, .reset:active { transform: none; }
   .range:active::-webkit-slider-thumb { transform: none; }
   .range:active::-moz-range-thumb { transform: none; }
+  .card:hover, .card:active { transform: none; }
+  .cbar { transition: none; }
 }
 
 /* ---------- help for a broad audience ---------- */
@@ -1106,7 +1437,11 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   .tabs button, .seg button, .chip, .pick select { min-height: 44px; }
   .grid td button { height: 44px; }
   .info { width: 44px; height: 44px; margin: -10px; }
-  .reset, .table-toggle { min-height: 44px; }
+  .reset, .table-toggle, .play { min-height: 44px; }
+  .co-dot::before { inset: -10px; }
+  .scrub { height: 44px; }
+  .theme { width: 44px; height: 44px; margin: -14px -12px -14px 0; }
+  .keys { display: none; }
 }
 
 /* Inspectable charts say so on hover. */
@@ -1118,8 +1453,7 @@ h1 .h1-sub { display: block; color: var(--muted); font-weight: 400; }
   :root { --bg: #fff; --surface: #fff; --shadow-1: none; --shadow-2: none; --shadow-3: none; }
   body { background: #fff; }
   .js:not(.ready) body { visibility: visible; }
-  .tabbar { position: static; }
-  .tabbar::before, .tabbar::after, .panel::after, .tip, .ring, .info, .def, .reset, .table-toggle { display: none; }
+  .cbar, .keys, .theme, .replay-ctl, .backdrop, .panel::after, .tip, .ring, .info, .def, .reset, .table-toggle { display: none; }
   .panel { break-inside: avoid; box-shadow: none; }
   a { color: inherit; }
 }

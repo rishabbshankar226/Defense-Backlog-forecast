@@ -17,6 +17,11 @@
 <script>
   /* Hold the page back until app.js has drawn it, so nothing shifts as the data arrives. */
   document.documentElement.classList.add("js");
+  /* Apply a saved light or dark choice before the first paint. */
+  try {
+    var saved = localStorage.getItem("dbf-theme");
+    if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+  } catch (e) {}
   setTimeout(function () { document.documentElement.classList.add("ready"); }, 4000);
 </script>
 </head>
@@ -31,10 +36,12 @@
       <a href="https://github.com/rishabbshankar226/defense-backlog-forecast">GitHub repository</a>
       <span class="dot" aria-hidden="true">·</span>
       <a href="https://rshankar.dev">rshankar.dev</a>
+      <button type="button" class="theme wash" id="theme" aria-label="Use the dark theme"></button>
     </span>
   </p>
 
   <div class="head-main intro" style="--i:0">
+    <svg class="backdrop" id="backdrop" aria-hidden="true" focusable="false" preserveAspectRatio="none"></svg>
     <h1>Does backlog predict revenue? <span class="h1-sub">Five defense primes, 2018 to 2026</span></h1>
     <p class="dek">Backlog is the value of work a company has signed contracts for but not yet delivered. This page tests whether it tells you next year's revenue better than simply repeating last year's.</p>
     <p class="lede" id="headline">Loading the results.</p>
@@ -48,10 +55,11 @@
       <span class="cue">Lower is better</span>
     </div>
     <div class="tiles" id="tiles"></div>
+    <p class="dots-key" id="dots-key">Dots mark each company's own figure. The filled one is the company selected below.</p>
   </section>
 
   <ol class="howto intro" style="--i:1" aria-label="How to read this page">
-    <li><strong>Pick a company.</strong> The tabs switch every chart below.</li>
+    <li><strong>Pick a company.</strong> The cards switch every chart below.</li>
     <li><strong>Compare each forecast with what happened.</strong> The closer a line runs to Actual, the better that method did.</li>
     <li><strong>Try a what-if.</strong> Move backlog or conversion and see the revenue they would imply. It is a scenario, not a prediction.</li>
   </ol>
@@ -59,11 +67,16 @@
 
 <main class="wrap">
 
-  <div class="tabbar-sentinel" id="tabbar-sentinel" aria-hidden="true"></div>
-  <div class="tabbar intro" id="tabbar" style="--i:2">
-    <div class="tabs" role="tablist" aria-label="Company" id="tabs"></div>
-    <span class="co-name" id="co-name"></span>
-  </div>
+  <section class="cos intro" style="--i:2" aria-labelledby="cos-title">
+    <div class="cos-head">
+      <div class="title-help">
+        <h2 id="cos-title" class="eyebrow">Five companies at a glance</h2>
+        <button type="button" class="info" data-help="cards" aria-expanded="false" aria-controls="def"></button>
+      </div>
+      <p class="keys" aria-hidden="true">Keys <kbd>1</kbd>–<kbd>5</kbd> switch company, <kbd>R</kbd> replays the backtest</p>
+    </div>
+    <div class="cards" role="tablist" aria-label="Company" id="cards"></div>
+  </section>
   <p class="verdict intro" id="verdict" style="--i:2" aria-live="polite"></p>
 
   <!-- Each panel is a figure: title, controls, key and caption on the left, the chart on the right. -->
@@ -79,6 +92,11 @@
       <div class="fig-main">
         <div class="unit" id="u-backlog" aria-hidden="true"></div>
         <div class="chart"><canvas id="c-backlog" role="img" aria-label="Backlog and revenue chart"></canvas></div>
+        <div class="btb-head">
+          <div class="unit" id="u-btb" aria-hidden="true"></div>
+          <button type="button" class="info" data-help="btb" aria-expanded="false" aria-controls="def"></button>
+        </div>
+        <div class="chart chart-btb"><canvas id="c-btb" role="img" aria-label="Implied book-to-bill chart"></canvas></div>
         <button type="button" class="table-toggle" aria-expanded="false" aria-controls="t-backlog">Show as table</button>
         <div class="data-table" id="t-backlog" hidden></div>
       </div>
@@ -95,6 +113,13 @@
         </div>
         <p class="note" id="fc-note">Each point is a forecast made with what was known at its origin.</p>
         <div class="legend" id="lg-fc" role="group" aria-label="Lines shown in the forecast chart"></div>
+        <div class="replay" id="replay">
+          <div class="replay-ctl">
+            <button type="button" class="play wash" id="play" aria-keyshortcuts="R"></button>
+            <input type="range" class="range scrub" id="scrub" aria-label="Forecasts shown, in order">
+          </div>
+          <div class="replay-out" id="replay-out" aria-live="polite"></div>
+        </div>
       </div>
       <div class="fig-main">
         <div class="unit" id="u-fc" aria-hidden="true"></div>
@@ -112,7 +137,7 @@
             <h2 id="bridge-title">What moved revenue</h2>
             <button type="button" class="info" data-help="bridge" aria-expanded="false" aria-controls="def"></button>
           </div>
-          <label class="pick">Year <select id="year"></select></label>
+          <div class="seg years" role="group" aria-label="Year" id="years"></div>
         </div>
         <p class="note">How this year's revenue got from last year's: the effect of a bigger or smaller starting backlog, the effect of turning more or less of it into revenue, and the overlap of the two.</p>
       </div>
@@ -167,6 +192,14 @@
         </table>
         <div class="ring" id="ring" aria-hidden="true"></div>
       </div>
+      <div class="fan">
+        <div class="big-label" id="fan-title">Every scenario against recent revenue</div>
+        <div class="unit" id="u-fan" aria-hidden="true"></div>
+        <div class="chart"><canvas id="c-fan" role="img" aria-label="Scenario fan chart"></canvas></div>
+        <p class="fan-note">The shaded span is the next four quarters. Each line joins the latest trailing revenue to one scenario's total; it is not a quarter-by-quarter path.</p>
+        <button type="button" class="table-toggle" aria-expanded="false" aria-controls="t-fan">Show as table</button>
+        <div class="data-table" id="t-fan" hidden></div>
+      </div>
     </section>
   </div>
 
@@ -186,6 +219,15 @@
 </main>
 
 <div class="def" id="def" role="status"></div>
+
+<!-- Once the cards scroll away, a compact company switcher slides in at the top. -->
+<div class="cbar" id="cbar" inert>
+  <div class="wrap cbar-in">
+    <div class="tabs" role="group" aria-label="Company" id="tabs"></div>
+    <span class="co-name" id="co-name"></span>
+  </div>
+  <div class="progress" aria-hidden="true"><i id="progress"></i></div>
+</div>
 
 <footer class="wrap foot intro" style="--i:8">Built by Rishabb Shankar, <a href="https://rshankar.dev">rshankar.dev</a>. Every figure on this page is read from data.json at load.</footer>
 
