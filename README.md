@@ -1,6 +1,6 @@
 # Does backlog predict revenue? Five defense primes, 2018 to 2026
 
-[Open the interactive dashboard](https://rishabbshankar226.github.io/Defense-Backlog-forecast/): pick a company, compare each model's forecasts with what happened, take apart a year's revenue change, and stress next year's revenue.
+[Open the interactive dashboard](https://rishabbshankar226.github.io/Defense-Backlog-forecast/): pick a company, compare each model's forecasts with what happened, take apart a year's revenue change, stress next year's revenue, and check every figure against the filing-level rows behind it, reconciled to the cent.
 
 [![The dashboard, showing Lockheed Martin](output/charts/dashboard.png)](https://rishabbshankar226.github.io/Defense-Backlog-forecast/)
 

@@ -11,13 +11,17 @@ import matplotlib.pyplot as plt  # noqa: E402
 from dbf import model  # noqa: E402
 from dbf.config import OUTPUT, RESULTS, SOURCE_LINE, TICKERS  # noqa: E402
 
-INK = "#1c1c1c"
-ACCENT = "#b4451f"
-NAIVE = "#8a8a8a"
-DRIFT = "#6b6b6b"
-GRID = "#e4e2dd"
-PAPER = "#fbfaf7"
-COLORS = {"backlog": ACCENT, "naive": NAIVE, "naive_drift": DRIFT}
+# The dashboard's palette: slate neutrals, slate-blue for the backlog series, and red and
+# green only for a favourable or unfavourable change.
+INK = "#0f172a"
+BACKLOG = "#1f4e8c"
+NAIVE = "#64748b"
+DRIFT = "#334155"
+FAV = "#15803d"
+UNFAV = "#b91c1c"
+GRID = "#e2e8f0"
+PAPER = "#ffffff"
+COLORS = {"backlog": BACKLOG, "naive": NAIVE, "naive_drift": DRIFT}
 NAMES = {
     "H1": {"backlog": "Backlog model", "naive": "Seasonal naive", "naive_drift": "Seasonal naive with drift"},
     "H4": {"backlog": "Backlog model", "naive": "Trailing 4Q", "naive_drift": "Trailing 4Q with drift"},
@@ -30,7 +34,7 @@ PHRASE = {"naive": "trailing 4Q revenue", "naive_drift": "trailing 4Q with drift
 SAVE_DPI = 200
 
 plt.rcParams.update({
-    "font.size": 14, "axes.edgecolor": "#8a8a8a", "axes.labelcolor": INK, "text.color": INK,
+    "font.size": 14, "axes.edgecolor": "#64748b", "axes.labelcolor": INK, "text.color": INK,
     "xtick.color": INK, "ytick.color": INK, "axes.spines.top": False, "axes.spines.right": False,
     "figure.facecolor": PAPER, "axes.facecolor": PAPER, "savefig.facecolor": PAPER,
 })
@@ -96,7 +100,7 @@ def backlog_chart(data):
         s = data[ticker]
         Q, B, R = s["quarters"], s["B"], s["R"]
         x = list(range(len(Q)))
-        ax.plot(x, [b / 1e9 if b is not None else None for b in B], color=ACCENT, lw=2.4)
+        ax.plot(x, [b / 1e9 if b is not None else None for b in B], color=BACKLOG, lw=2.4)
         ttm = [model.ttm(R, t) for t in x]
         ax.plot(x, [v / 1e9 if v is not None else None for v in ttm], color=INK, lw=2.4)
         ax.set_title(ticker, loc="left", weight="bold")
@@ -109,7 +113,7 @@ def backlog_chart(data):
         ax.set_axisbelow(True)
     leg = axes.flat[5]
     leg.axis("off")
-    leg.plot([], [], color=ACCENT, lw=3, label="Backlog (RPO) at quarter end")
+    leg.plot([], [], color=BACKLOG, lw=3, label="Backlog (RPO) at quarter end")
     leg.plot([], [], color=INK, lw=3, label="Revenue, trailing four quarters")
     leg.legend(loc="center left", frameon=False, fontsize=15)
     fig.text(0.06, 0.93, "Backlog and trailing revenue, $B, by quarter", fontsize=22, weight="bold")
@@ -133,7 +137,7 @@ def bridge_chart(year=2025):
         lo = min(r["revenue_prior_usd"], r["revenue_usd"])
         ax.bar(0, r["revenue_prior_usd"], color=INK, width=0.7)
         for i, d in enumerate(steps, start=1):
-            ax.bar(i, d, bottom=level, color=ACCENT if d >= 0 else DRIFT, width=0.7)
+            ax.bar(i, d, bottom=level, color=FAV if d >= 0 else UNFAV, width=0.7)
             ax.text(i, max(level, level + d) + 0.004 * level, f"{d:+.2f}", ha="center",
                     va="bottom", fontsize=11)
             level += d
@@ -156,7 +160,7 @@ def bridge_chart(year=2025):
              "Backlog effect: the change in starting\nbacklog at last year's conversion rate.\n\n"
              "Conversion effect: the change in the\nconversion rate on last year's backlog.\n\n"
              "Interaction: both changes together.\n\n"
-             "Orange adds revenue, grey subtracts.\nAxes start above zero.",
+             "Green adds revenue, red subtracts.\nAxes start above zero.",
              fontsize=13, va="top", color="#333333", linespacing=1.3)
     fig.text(0.05, 0.93, f"What moved {year} revenue, $B", fontsize=22, weight="bold")
     fig.text(0.05, 0.895, "Revenue change split into backlog, conversion rate and interaction; "

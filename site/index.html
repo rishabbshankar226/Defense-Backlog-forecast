@@ -6,235 +6,294 @@
 <title>Does backlog predict revenue? Five defense primes</title>
 <meta name="description" content="A backtest of backlog-driven revenue forecasts for five U.S. defense primes, built from SEC filings.">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f8f6f1" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#151514" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Does backlog predict revenue? Five defense primes">
 <meta property="og:description" content="A backtest of backlog-driven revenue forecasts for five U.S. defense primes, built from SEC filings.">
 <meta name="twitter:card" content="summary">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23b4451f'/%3E%3Cpath d='M9 23v-5M14 23v-9M19 23v-7M24 23V9' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%231f4e8c'/%3E%3Cpath d='M9 23v-5M14 23v-9M19 23v-7M24 23V9' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 <link rel="preload" href="data.json" as="fetch" crossorigin="anonymous">
 <script>
-  /* Hold the page back until app.js has drawn it, so nothing shifts as the data arrives. */
-  document.documentElement.classList.add("js");
   /* Apply a saved light or dark choice before the first paint. */
   try {
     var saved = localStorage.getItem("dbf-theme");
     if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
   } catch (e) {}
-  setTimeout(function () { document.documentElement.classList.add("ready"); }, 4000);
 </script>
 </head>
 <body>
-<a class="skip" href="#cos">Skip to the charts</a>
+<a class="skip" href="#summary">Skip to the summary</a>
 <noscript><p class="noscript">This page draws its charts with JavaScript, which is turned off. The results are also written out in the <a href="https://github.com/rishabbshankar226/defense-backlog-forecast#results">README</a>.</p></noscript>
-<main id="main">
-<div class="wrap head">
-  <p class="meta intro" style="--i:0">
-    <span id="asof">As of the data date</span>
-    <span class="dot" aria-hidden="true">·</span>
-    <span>Source: SEC EDGAR XBRL, as first reported in each quarterly or annual filing</span>
-    <span class="links">
-      <span class="dot" aria-hidden="true">·</span>
-      <a href="https://github.com/rishabbshankar226/defense-backlog-forecast">GitHub repository</a>
-      <span class="dot" aria-hidden="true">·</span>
-      <a href="https://rshankar.dev">rshankar.dev</a>
-      <button type="button" class="theme wash" id="theme" aria-label="Use the dark theme"></button>
-    </span>
-  </p>
 
-  <div class="head-main intro" style="--i:0">
-    <svg class="backdrop" id="backdrop" aria-hidden="true" focusable="false" preserveAspectRatio="none"></svg>
-    <h1>Does backlog predict revenue? <span class="h1-sub">Five defense primes, 2018 to 2026</span></h1>
-    <p class="dek">Backlog is the value of work a company has signed contracts for but not yet delivered. This page tests whether it tells you next year's revenue better than simply repeating last year's.</p>
-    <p class="lede" id="headline">Loading the results.</p>
-    <p class="bottom-line" id="bottom-line"></p>
+<!-- Title and source at left, the global filters at right. Sticky. -->
+<header class="top">
+  <div class="wrap top-in">
+    <div class="brand">
+      <h1>Does backlog predict revenue? <span class="h1-sub">Five U.S. defense primes</span></h1>
+      <p class="meta">
+        <span id="asof">Data as of the data date</span>
+        <span aria-hidden="true">·</span>
+        <span>SEC EDGAR XBRL, as first reported</span>
+        <span aria-hidden="true">·</span>
+        <a href="https://github.com/rishabbshankar226/defense-backlog-forecast">GitHub</a>
+      </p>
+    </div>
+    <div class="filters" role="group" aria-label="Filters for the whole page">
+      <div class="f">
+        <span class="f-label" id="f-company-label">Company <span class="f-name" id="f-name"></span></span>
+        <div class="seg" id="f-company" aria-labelledby="f-company-label"></div>
+      </div>
+      <div class="f">
+        <span class="f-label" id="f-view-label">Forecast horizon</span>
+        <div class="seg" id="f-view" aria-labelledby="f-view-label"></div>
+      </div>
+      <div class="f">
+        <span class="f-label" id="f-period-label">Period <span class="dim">(year)</span></span>
+        <div class="period" role="group" aria-labelledby="f-period-label">
+          <label class="sr-only" for="f-from">From year</label>
+          <select id="f-from"></select>
+          <span aria-hidden="true">to</span>
+          <label class="sr-only" for="f-to">To year</label>
+          <select id="f-to"></select>
+          <button type="button" class="link" id="f-reset" hidden>All years</button>
+        </div>
+      </div>
+      <div class="f f-tools">
+        <button type="button" class="btn ghost" id="keys-open" aria-haspopup="dialog">Shortcuts</button>
+        <button type="button" class="btn ghost icon" id="theme" aria-label="Use the dark theme"></button>
+      </div>
+    </div>
   </div>
+</header>
 
-  <section aria-labelledby="score-title" class="score intro" style="--i:1">
-    <div class="score-head">
-      <h2 id="score-title" class="eyebrow">Average forecast miss, next four quarters, all five companies</h2>
-      <button type="button" class="info" data-help="mape" aria-expanded="false" aria-controls="def"></button>
-      <span class="cue">Lower is better</span>
+<div class="wrap"><div class="page-state" id="page-state" role="status">Loading the data…</div></div>
+
+<main id="main" class="wrap">
+
+  <!-- The finding and the KPIs, each against its baseline. -->
+  <section class="summary" id="summary" tabindex="-1" aria-labelledby="summary-title">
+    <div class="finding">
+      <h2 class="eyebrow" id="summary-title">Finding · full sample, next four quarters</h2>
+      <p class="lede" id="headline">Loading the results.</p>
+      <p class="bottom-line" id="bottom-line"></p>
+      <p class="key-note">Green ▲▼ marks a favourable variance and red an unfavourable one, against the comparison printed beside it. Series colours are never red or green.
+        <button type="button" class="info" data-help="colour" aria-expanded="false" aria-controls="def"></button></p>
     </div>
-    <div class="tiles" id="tiles"></div>
-    <p class="dots-key" id="dots-key">Dots mark each company's own figure. The filled one is the company selected below.</p>
+    <div class="kpis" id="kpis" data-state="loading">
+      <div class="kpi-group">
+        <h3 class="eyebrow" id="kpis-pool-title">All five companies</h3>
+        <div class="kpi-row" id="kpis-pool"><div class="kpi sk"></div><div class="kpi sk"></div><div class="kpi sk"></div><div class="kpi sk"></div></div>
+      </div>
+      <div class="kpi-group">
+        <h3 class="eyebrow" id="kpis-co-title">Selected company</h3>
+        <div class="kpi-row co" id="kpis-co"><div class="kpi sk"></div><div class="kpi sk"></div><div class="kpi sk"></div><div class="kpi sk"></div></div>
+      </div>
+      <div class="state"></div>
+    </div>
   </section>
 
-  <ol class="howto intro" style="--i:1" aria-label="How to read this page">
-    <li><strong>Pick a company.</strong> The cards switch every chart below.</li>
-    <li><strong>Compare each forecast with what happened.</strong> The closer a line runs to Actual, the better that method did.</li>
-    <li><strong>Try a what-if.</strong> Move backlog or conversion and see the revenue they would imply. It is a scenario, not a prediction.</li>
-  </ol>
-</div>
+  <!-- The body: core trends, two panels to a row on wide screens. -->
+  <div class="body">
 
-<div class="wrap">
 
-  <section class="cos intro" id="cos" tabindex="-1" style="--i:2" aria-labelledby="cos-title">
-    <div class="cos-head">
-      <div class="title-help">
-        <h2 id="cos-title" class="eyebrow">Five companies at a glance</h2>
-        <button type="button" class="info" data-help="cards" aria-expanded="false" aria-controls="def"></button>
+    <section class="panel fig" id="p-backlog" data-state="loading" aria-labelledby="backlog-title">
+      <div class="p-head">
+        <h2 id="backlog-title" tabindex="-1">Backlog and revenue</h2>
+        <span class="tag">GAAP</span>
       </div>
-      <p class="cos-key" aria-hidden="true"><span class="ck up">Backlog better</span><span class="ck down">Backlog worse</span></p>
-      <p class="keys"><span class="keys-hint" aria-hidden="true">Keys <kbd>1</kbd>–<kbd>5</kbd> switch company, <kbd>R</kbd> replays the backtest</span>
-        <button type="button" class="keys-open" id="keys-open" aria-haspopup="dialog">Keyboard shortcuts</button></p>
-    </div>
-    <div class="cards" role="tablist" aria-label="Company" id="cards"></div>
-  </section>
-  <p class="verdict intro" id="verdict" style="--i:2"></p>
-
-  <!-- Each panel is a figure: title, controls, key and caption on the left, the chart on the right. -->
-  <div class="panels" id="company" role="tabpanel" aria-labelledby="tab-LMT">
-    <section class="panel fig intro" id="p-backlog" style="--i:3" aria-labelledby="backlog-title">
-      <div class="fig-head">
-        <div class="row">
-          <h2 id="backlog-title" tabindex="-1">Backlog and revenue</h2>
-        </div>
-        <p class="note" id="backlog-note">Backlog at each quarter end against revenue over the trailing four quarters.</p>
-        <div class="legend" id="lg-backlog" role="group" aria-label="Lines shown in the backlog chart"></div>
+      <p class="note" id="backlog-note">US$ billions at each quarter end.</p>
+      <div class="legend" id="lg-backlog" role="group" aria-label="Lines shown in the backlog chart"></div>
+      <div class="chart h-main"><canvas id="c-backlog" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Backlog and revenue chart"></canvas></div>
+      <div class="sub-head">
+        <h3 class="sub">Implied book-to-bill, each quarter <span class="tag">Derived</span></h3>
+        <button type="button" class="info" data-help="btb" aria-expanded="false" aria-controls="def"></button>
+        <span class="mini-key"><span class="fav">▲ ≥ 1.0× backlog grew</span> <span class="unfav">▼ &lt; 1.0× backlog shrank</span></span>
       </div>
-      <div class="fig-main">
-        <div class="unit" id="u-backlog" aria-hidden="true"></div>
-        <div class="chart"><canvas id="c-backlog" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Backlog and revenue chart"></canvas></div>
-        <div class="btb-head">
-          <div class="unit" id="u-btb" aria-hidden="true"></div>
-          <button type="button" class="info" data-help="btb" aria-expanded="false" aria-controls="def"></button>
-        </div>
-        <div class="chart chart-btb"><canvas id="c-btb" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Implied book-to-bill chart"></canvas></div>
-        <button type="button" class="table-toggle" aria-expanded="false" aria-controls="t-backlog">Show as table</button>
-        <div class="data-table" id="t-backlog" role="region" tabindex="0" hidden></div>
-      </div>
+      <div class="chart h-btb"><canvas id="c-btb" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Implied book-to-bill chart"></canvas></div>
+      <div class="state"></div>
     </section>
 
-    <section class="panel fig intro" id="p-fc" style="--i:4" aria-labelledby="fc-title">
-      <div class="fig-head">
-        <div class="row">
-          <h2 id="fc-title" tabindex="-1">Forecast against actual</h2>
-          <div class="seg" role="group" aria-label="Forecast horizon" id="seg">
-            <button type="button" data-view="h1" aria-pressed="false">Next quarter</button>
-            <button type="button" data-view="h4" aria-pressed="true">Next four quarters</button>
-          </div>
-        </div>
-        <p class="note" id="fc-note">Each point is a forecast made with what was known at its origin.</p>
-        <div class="legend" id="lg-fc" role="group" aria-label="Lines shown in the forecast chart"></div>
-        <div class="replay" id="replay">
-          <div class="replay-ctl">
-            <button type="button" class="play wash" id="play" aria-keyshortcuts="R"></button>
-            <input type="range" class="range scrub" id="scrub" aria-label="Forecasts shown, in order">
-          </div>
-          <div class="replay-out" id="replay-out" aria-live="polite"></div>
-        </div>
+    <section class="panel fig" id="p-fc" data-state="loading" aria-labelledby="fc-title">
+      <div class="p-head">
+        <h2 id="fc-title" tabindex="-1">Forecast against actual</h2>
+        <span class="tag">Model vs GAAP</span>
       </div>
-      <div class="fig-main">
-        <div class="unit" id="u-fc" aria-hidden="true"></div>
-        <div class="chart"><canvas id="c-fc" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Forecast against actual chart"></canvas></div>
-        <button type="button" class="table-toggle" aria-expanded="false" aria-controls="t-fc">Show as table</button>
-        <div class="data-table" id="t-fc" role="region" tabindex="0" hidden></div>
+      <p class="note" id="fc-note">Each point is a forecast made with what was known at its origin.</p>
+      <div class="legend" id="lg-fc" role="group" aria-label="Lines shown in the forecast chart"></div>
+      <div class="chart h-main"><canvas id="c-fc" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Forecast against actual chart"></canvas></div>
+      <div class="replay" id="replay">
+        <div class="replay-ctl">
+          <button type="button" class="btn ghost play" id="play" aria-keyshortcuts="R"></button>
+          <label class="sr-only" for="scrub">Forecasts shown, in order</label>
+          <input type="range" class="range" id="scrub">
+        </div>
+        <div class="replay-out" id="replay-out" aria-live="polite"></div>
       </div>
       <p class="caption" id="miss"></p>
+      <div class="state"></div>
     </section>
 
-    <section class="panel fig bridge intro" id="p-bridge" style="--i:5" aria-labelledby="bridge-title">
-      <div class="fig-head">
-        <div class="row">
-          <div class="title-help">
-            <h2 id="bridge-title" tabindex="-1">What moved revenue</h2>
-            <button type="button" class="info" data-help="bridge" aria-expanded="false" aria-controls="def"></button>
-          </div>
-          <div class="seg years" role="group" aria-label="Year" id="years"></div>
-        </div>
-        <p class="note">How this year's revenue got from last year's: the effect of a bigger or smaller starting backlog, the effect of turning more or less of it into revenue, and the overlap of the two.</p>
+    <section class="panel" id="p-score" data-state="loading" aria-labelledby="score-title">
+      <div class="p-head">
+        <h2 id="score-title" tabindex="-1">Scorecard: average forecast miss</h2>
+        <button type="button" class="info" data-help="mape" aria-expanded="false" aria-controls="def"></button>
+        <span class="tag">Model</span>
       </div>
-      <div class="fig-main">
-        <div class="unit" id="u-bridge" aria-hidden="true"></div>
-        <div class="chart"><canvas id="c-bridge" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Revenue bridge chart"></canvas></div>
-        <button type="button" class="table-toggle" aria-expanded="false" aria-controls="t-bridge">Show as table</button>
-        <div class="data-table" id="t-bridge" role="region" tabindex="0" hidden></div>
+      <p class="note" id="score-note">Mean absolute percentage error against actual GAAP revenue. Lower is better.</p>
+      <div class="scroll-x" role="region" aria-label="Scorecard table" tabindex="0">
+        <table class="score" id="scorecard"></table>
+      </div>
+      <div class="state"></div>
+    </section>
+
+    <section class="panel fig" id="p-bridge" data-state="loading" aria-labelledby="bridge-title">
+      <div class="p-head">
+        <h2 id="bridge-title" tabindex="-1">What moved revenue</h2>
+        <button type="button" class="info" data-help="bridge" aria-expanded="false" aria-controls="def"></button>
+        <span class="tag">Derived from GAAP</span>
+        <div class="seg years" role="group" aria-label="Year" id="years"></div>
+      </div>
+      <p class="note">How a calendar year's GAAP revenue got from the year before's: the effect of a bigger or smaller starting backlog, the effect of turning more or less of it into revenue, and the overlap of the two.</p>
+      <div class="bridge-body">
+        <div class="chart h-main"><canvas id="c-bridge" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Revenue bridge chart"></canvas></div>
+        <div class="bridge-table" id="bridge-table"></div>
       </div>
       <p class="caption" id="bridge-cap"></p>
+      <div class="state"></div>
     </section>
 
-    <section class="panel fig whatif intro" id="p-whatif" style="--i:6" aria-labelledby="whatif-title">
-      <div class="fig-head">
-        <div class="row">
-          <h2 id="whatif-title" tabindex="-1">What if</h2>
-        </div>
-        <p class="note">A scenario, not a prediction. Start from today's backlog and its typical conversion rate, nudge either one, and see the revenue it implies for the next four quarters.</p>
+    <section class="panel whatif" id="p-whatif" data-state="loading" aria-labelledby="whatif-title">
+      <div class="p-head">
+        <h2 id="whatif-title" tabindex="-1">What if</h2>
+        <span class="tag">Model scenario</span>
+        <span class="note inline" id="whatif-from"></span>
       </div>
-      <div class="controls">
-        <div class="ctl">
-          <div class="ctl-head">
-            <label for="shock">Change in backlog</label>
-            <button type="button" class="info" data-help="shock" aria-expanded="false" aria-controls="def"></button>
-            <output id="shock-out" for="shock"></output>
+      <p class="note">A scenario, not a prediction. Start from today's backlog and its typical conversion rate, nudge either one, and see the revenue it implies for the next four quarters. Shown without red or green: a scenario is not a variance.</p>
+      <div class="whatif-grid">
+        <div class="whatif-left">
+          <div class="controls">
+            <div class="ctl">
+              <div class="ctl-head">
+                <label for="shock">Change in backlog</label>
+                <button type="button" class="info" data-help="shock" aria-expanded="false" aria-controls="def"></button>
+                <output id="shock-out" for="shock"></output>
+              </div>
+              <input type="range" id="shock" class="range">
+              <div class="ticks" id="shock-ticks" aria-hidden="true"></div>
+            </div>
+            <div class="ctl">
+              <div class="ctl-head">
+                <label for="shift">Change in conversion rate</label>
+                <button type="button" class="info" data-help="shift" aria-expanded="false" aria-controls="def"></button>
+                <output id="shift-out" for="shift"></output>
+              </div>
+              <input type="range" id="shift" class="range">
+              <div class="ticks" id="shift-ticks" aria-hidden="true"></div>
+            </div>
           </div>
-          <input type="range" id="shock" class="range">
-          <div class="ticks" id="shock-ticks" aria-hidden="true"></div>
-        </div>
-        <div class="ctl">
-          <div class="ctl-head">
-            <label for="shift">Change in conversion rate</label>
-            <button type="button" class="info" data-help="shift" aria-expanded="false" aria-controls="def"></button>
-            <output id="shift-out" for="shift"></output>
+          <div class="big">
+            <div class="big-head">
+              <h3 class="eyebrow" id="fwd-title">Scenario revenue, next four quarters</h3>
+              <button type="button" class="btn ghost" id="reset" aria-label="Reset to no change in backlog or conversion rate">Reset</button>
+            </div>
+            <p class="big-num"><span id="fwd"></span> <span class="big-m" id="fwd-m"></span></p>
+            <p class="big-delta" id="fwd-delta"></p>
+            <p class="big-context" id="fwd-context"></p>
           </div>
-          <input type="range" id="shift" class="range">
-          <div class="ticks" id="shift-ticks" aria-hidden="true"></div>
+          <div class="grid-wrap" id="grid-wrap">
+            <table class="grid" id="grid">
+              <caption>Every scenario, US$ billions: change in backlog down the side, change in conversion rate across the top</caption>
+            </table>
+          </div>
+        </div>
+        <div class="fan">
+          <h3 class="sub" id="fan-title">Every scenario against recent revenue</h3>
+          <div class="chart h-main"><canvas id="c-fan" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Scenario fan chart"></canvas></div>
+          <p class="caption">The shaded span is the next four quarters. Each line joins the latest trailing revenue to one scenario's total; it is not a quarter-by-quarter path.</p>
         </div>
       </div>
-      <div class="big">
-        <div class="big-head">
-          <h3 class="big-label" id="fwd-title">Scenario revenue, next four quarters</h3>
-          <button type="button" class="reset wash" id="reset" aria-label="Reset to no change in backlog or conversion rate">Reset</button>
-        </div>
-        <div class="big-num" id="fwd"></div>
-        <div class="big-delta" id="fwd-delta"></div>
-        <p class="big-context" id="fwd-context"></p>
-      </div>
-      <div class="grid-wrap" id="grid-wrap">
-        <table class="grid" id="grid">
-          <caption>Every scenario: change in backlog down the side, change in conversion rate across the top</caption>
-        </table>
-        <div class="ring" id="ring" aria-hidden="true"></div>
-      </div>
-      <div class="fan">
-        <h3 class="big-label" id="fan-title">Every scenario against recent revenue</h3>
-        <div class="unit" id="u-fan" aria-hidden="true"></div>
-        <div class="chart"><canvas id="c-fan" tabindex="0" aria-describedby="chart-hint" role="img" aria-label="Scenario fan chart"></canvas></div>
-        <p class="fan-note">The shaded span is the next four quarters. Each line joins the latest trailing revenue to one scenario's total; it is not a quarter-by-quarter path.</p>
-        <button type="button" class="table-toggle" aria-expanded="false" aria-controls="t-fan">Show as table</button>
-        <div class="data-table" id="t-fan" role="region" tabindex="0" hidden></div>
-      </div>
+      <div class="state"></div>
     </section>
   </div>
 
-  <section class="panel method intro" id="p-method" style="--i:7" aria-labelledby="method-title">
-    <h2 id="method-title" tabindex="-1">Method</h2>
-    <div class="method-body">
-      <ol>
-        <li>Backlog is each company's remaining performance obligations, taken as first reported in its quarterly or annual filing.</li>
-        <li>The backlog model multiplies backlog by the rate at which past backlog turned into revenue.</li>
-        <li>The baselines repeat last year's revenue: the same quarter for the next quarter, the trailing four quarters for the next four, each with and without trailing growth.</li>
-        <li>Every forecast uses only figures known at its origin quarter and is scored by its absolute percentage error.</li>
-        <li>The design was fixed in writing before any result existed.</li>
-      </ol>
-      <p><a href="https://github.com/rishabbshankar226/defense-backlog-forecast#limitations">Read the limitations in the README</a></p>
+  <!-- Every row behind the charts, with totals and a reconciliation. -->
+  <section class="panel table-panel" id="p-table" data-state="loading" aria-labelledby="table-title">
+    <div class="p-head">
+      <h2 id="table-title" tabindex="-1">Data</h2>
+      <div class="tabs" role="tablist" aria-label="Table" id="t-tabs">
+        <button type="button" role="tab" id="tt-quarters" aria-controls="tbl" aria-selected="true">Quarterly fundamentals</button>
+        <button type="button" role="tab" id="tt-forecasts" aria-controls="tbl" aria-selected="false" tabindex="-1">Backtest forecasts</button>
+      </div>
     </div>
+    <div class="tbl-ctl">
+      <label class="ctl-inline">Scope
+        <select id="t-scope">
+          <option value="company">Selected company</option>
+          <option value="all">All five companies</option>
+        </select>
+      </label>
+      <label class="ctl-inline" id="t-model-wrap" hidden>Model
+        <select id="t-model">
+          <option value="all">All models</option>
+          <option value="backlog">Backlog model</option>
+          <option value="naive">Naive</option>
+          <option value="naive_drift">Naive with drift</option>
+        </select>
+      </label>
+      <label class="ctl-inline grow">Search
+        <input type="search" id="t-search" placeholder="Ticker, quarter, model or accession" autocomplete="off">
+      </label>
+      <output class="count" id="t-count" for="t-search t-scope"></output>
+      <button type="button" class="btn" id="t-export">Export CSV</button>
+    </div>
+    <!-- The caption is shown here, outside the sideways scroll, so it wraps to the box's width.
+         The table keeps its own <caption> for screen readers; this copy is hidden from them. -->
+    <p class="tbl-caption" id="t-caption" aria-hidden="true"></p>
+    <div class="tbl-scroll" id="tbl" role="tabpanel" aria-labelledby="tt-quarters" tabindex="0">
+      <table class="data" id="data"><caption class="sr-only"></caption><thead></thead><tbody></tbody><tfoot></tfoot></table>
+    </div>
+    <button type="button" class="btn more" id="t-more" hidden>Show more</button>
+    <div class="recon" id="recon">
+      <div class="recon-head">
+        <h3 class="sub">Reconciliation</h3>
+        <button type="button" class="info" data-help="recon" aria-expanded="false" aria-controls="def"></button>
+        <p id="recon-sum" class="recon-sum"></p>
+      </div>
+      <details>
+        <summary>Show each check</summary>
+        <ol id="recon-list"></ol>
+      </details>
+    </div>
+    <div class="state"></div>
   </section>
-</div>
 
-<!-- Screen-reader messages: what a change did, said once it settles. -->
-<div class="sr-only" id="announce" aria-live="polite"></div>
-<p class="sr-only" id="chart-hint">Left and right arrow keys step through the chart's points, Home and End jump to the ends, Escape clears.</p>
+  <section class="panel method" id="p-method" aria-labelledby="method-title">
+    <h2 id="method-title" tabindex="-1">Method</h2>
+    <ol>
+      <li>Backlog is each company's remaining performance obligations, taken as first reported in its quarterly or annual filing.</li>
+      <li>The backlog model multiplies backlog by the rate at which past backlog turned into revenue.</li>
+      <li>The baselines repeat last year's revenue: the same quarter for the next quarter, the trailing four quarters for the next four, each with and without trailing growth.</li>
+      <li>Every forecast uses only figures known at its origin quarter and is scored by its absolute percentage error.</li>
+      <li>The design was fixed in writing before any result existed.</li>
+    </ol>
+    <p><a href="https://github.com/rishabbshankar226/defense-backlog-forecast#limitations">Read the limitations in the README</a></p>
+  </section>
+
+  <!-- Screen-reader messages: what a change did, said once it settles. -->
+  <div class="sr-only" id="announce" aria-live="polite"></div>
+  <p class="sr-only" id="chart-hint">Left and right arrow keys step through the chart's points, Home and End jump to the ends, Escape clears.</p>
 </main>
+
+<footer class="wrap foot">Built by Rishabb Shankar, <a href="https://rshankar.dev">rshankar.dev</a>. Every figure on this page is read from data.json at load and reconciled against the table above.</footer>
 
 <div class="def" id="def" role="status"></div>
 
 <dialog class="keys-dlg" id="keys-dlg" aria-labelledby="keys-title">
   <div class="keys-dlg-head">
     <h2 id="keys-title">Keyboard shortcuts</h2>
-    <button type="button" class="keys-close wash" id="keys-close" aria-label="Close">
+    <button type="button" class="btn ghost icon" id="keys-close" aria-label="Close">
       <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
     </button>
   </div>
@@ -242,7 +301,7 @@
     <div><dt><kbd>1</kbd>–<kbd>5</kbd></dt><dd>Switch company</dd></div>
     <div><dt><kbd>R</kbd></dt><dd>Replay the backtest, or pause it</dd></div>
     <div><dt><kbd>?</kbd></dt><dd>Open this list</dd></div>
-    <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>On the cards, a year, the what-if grid or a focused chart: move through it</dd></div>
+    <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>In a filter, a year, the what-if grid, the table tabs or a focused chart: move through it</dd></div>
     <div><dt><kbd>Esc</kbd></dt><dd>Close a definition or this list</dd></div>
   </dl>
   <div class="keys-switch">
@@ -259,25 +318,7 @@
   <span class="peek-delta" id="peek-delta"></span>
 </div>
 
-<!-- Once the cards scroll away, a compact company switcher slides in at the top. -->
-<div class="cbar" id="cbar" role="region" aria-label="Company and sections" inert>
-  <div class="wrap cbar-in">
-    <div class="tabs" role="group" aria-label="Company" id="tabs"></div>
-    <span class="co-name" id="co-name"></span>
-    <nav class="jump" id="jump" aria-label="Sections">
-      <a href="#p-backlog">Backlog</a>
-      <a href="#p-fc">Forecast</a>
-      <a href="#p-bridge">What moved revenue</a>
-      <a href="#p-whatif">What if</a>
-      <a href="#p-method">Method</a>
-    </nav>
-  </div>
-  <div class="progress" aria-hidden="true"><i id="progress"></i></div>
-</div>
-
-<footer class="wrap foot intro" style="--i:8">Built by Rishabb Shankar, <a href="https://rshankar.dev">rshankar.dev</a>. Every figure on this page is read from data.json at load.</footer>
-
 <script src="vendor/chart.umd.js"></script>
-<script src="app.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

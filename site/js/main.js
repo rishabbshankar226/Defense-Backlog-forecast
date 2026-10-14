@@ -1,0 +1,125 @@
+/* Entry point: load data.json, build the model, and mount each part of the page.
+
+   Load path: every failure (network, HTTP status, bad JSON, or a throw while starting)
+   ends in the page-level error with a retry. After that, each panel draws inside its own
+   guard, so one failing panel shows its own error and the rest of the page still works. */
+
+import { $, colors, still, onMotionChange } from "./dom.js";
+import { buildModel } from "./model.js";
+import * as store from "./state.js";
+import { guard, pageState, setPanelState } from "./ui-state.js";
+import { watchInfo } from "./help.js";
+import { initFilters, syncFilters, watchTheme, watchKeys } from "./filters.js";
+import { renderHeadline, renderKpis, renderScorecard } from "./kpis.js";
+import { renderTable, watchTable } from "./table.js";
+import { watchCharts, charts } from "./charts/base.js";
+import { renderBacklog } from "./charts/backlog.js";
+import { renderBtb } from "./charts/btb.js";
+import { renderForecast, watchReplay } from "./charts/forecast.js";
+import { renderBridge } from "./charts/bridge.js";
+import { renderWhatIf, gridKeys, watchPeek } from "./charts/whatif.js";
+
+const PANELS = ["kpis", "p-score", "p-backlog", "p-fc", "p-bridge", "p-whatif", "p-table"];
+let model = null;
+
+/* Which parts of the page redraw for which state changes. */
+const GLOBAL = ["ticker", "view", "from", "to"];
+const PARTS = [
+  { panel: "kpis", keys: GLOBAL, draw: (st, p) => renderKpis(model, st, p) },
+  { panel: "p-score", keys: GLOBAL, draw: (st, p) => renderScorecard(model, st, p) },
+  { panel: "p-backlog", keys: ["ticker", "from", "to"], draw: (st, p, c) => {
+    const a = renderBacklog(model, st, c, p);
+    return a || renderBtb(model, st, c, p);
+  } },
+  { panel: "p-fc", keys: GLOBAL, draw: (st, p, c) => renderForecast(model, st, c, p) },
+  { panel: "p-bridge", keys: ["ticker", "from", "to", "year"], draw: (st, p, c) => renderBridge(model, st, c, p) },
+  { panel: "p-whatif", keys: ["ticker", "shock", "shift"], draw: (st, p, c, keys) =>
+    renderWhatIf(model, st, c, keys && (keys.has("shock") || keys.has("shift"))) },
+  { panel: "p-table", keys: [...GLOBAL, "tab", "scope", "query", "model", "sort", "limit"], draw: (st) => renderTable(model, st) }
+];
+
+function draw(st, keys) {
+  const p = store.period(), c = colors();
+  syncFilters(st, keys);
+  // An empty panel under a narrowed period offers the way back to every year.
+  const widen = st.from !== st.bounds.minYear || st.to !== st.bounds.maxYear
+    ? { label: "Show all years", run: () => store.set({ from: st.bounds.minYear, to: st.bounds.maxYear }) } : null;
+  PARTS.forEach((part) => {
+    if (keys && !part.keys.some((k) => keys.has(k))) return;
+    guard(part.panel, () => {
+      const r = part.draw(st, p, c, keys);
+      if (r && r.empty && !r.action) r.action = widen;
+      return r;
+    }, () => draw(store.get(), null));
+  });
+}
+
+function start(json) {
+  model = buildModel(json);
+  store.readUrl(model.tickers, model.minYear, model.maxYear);
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.font.size = 11;
+
+  renderHeadline(model);
+  initFilters(model);
+  watchInfo();
+  watchTable(model);
+  watchReplay();
+  watchCharts();
+  watchKeys(model);
+  watchPeek();
+  $("grid").addEventListener("keydown", gridKeys);
+  $("reset").addEventListener("click", () => store.set({ shock: 0, shift: 0 }));
+  // The hash holds the company, so the skip link moves focus without touching it.
+  document.querySelector(".skip").addEventListener("click", (e) => {
+    e.preventDefault();
+    $("summary").scrollIntoView({ block: "start" });
+    $("summary").focus({ preventScroll: true });
+  });
+  // Nothing that takes focus may sit under the sticky header (WCAG 2.4.11). Its height
+  // changes as the filters wrap, so scroll-padding follows the measured height, and a
+  // focused element that still lands under it is scrolled clear.
+  const header = document.querySelector(".top");
+  if (window.ResizeObserver) {
+    new ResizeObserver(() => document.documentElement.style.setProperty("--top-h", header.offsetHeight + "px")).observe(header);
+  }
+  document.addEventListener("focusin", (e) => {
+    const head = document.querySelector(".top"), t = e.target;
+    if (!t.getBoundingClientRect || head.contains(t) || getComputedStyle(head).position !== "sticky") return;
+    const below = head.getBoundingClientRect().bottom, top = t.getBoundingClientRect().top;
+    if (top < below) window.scrollBy(0, top - below - 8);
+  });
+  window.addEventListener("hashchange", () => {
+    const h = location.hash.replace("#", "").toUpperCase();
+    if (model.tickers.includes(h)) store.set({ ticker: h });
+  });
+
+  // Colours and motion are read when drawing, so a theme or motion change redraws everything.
+  const redraw = () => draw(store.get(), null);
+  watchTheme(redraw);
+  onMotionChange(() => { $("play").hidden = still(); redraw(); });
+
+  store.subscribe(draw);
+  draw(store.get(), null);
+  pageState("ready");
+  document.documentElement.classList.add("ready");
+}
+
+function load() {
+  pageState("loading", "Loading the data…");
+  PANELS.forEach((id) => setPanelState(id, "loading"));
+  fetch("data.json")
+    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(start)
+    .catch((err) => {
+      if (window.console) console.error(err);
+      const msg = "The data did not load (" + (err && err.message ? err.message : "unknown error") + "). Nothing on this page is shown from stale data.";
+      PANELS.forEach((id) => setPanelState(id, "error", { msg: "Waiting for the data." }));
+      pageState("error", msg, () => { if (model) location.reload(); else load(); });
+      document.documentElement.classList.add("ready");
+    });
+}
+
+// Kept for debugging from the console: the charts and the model.
+window.dbf = { charts, get model() { return model; } };
+load();
