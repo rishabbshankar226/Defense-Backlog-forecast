@@ -4,7 +4,7 @@
    bar, and the table beside the chart foots at the precision it shows. */
 
 import { $, el } from "../dom.js";
-import { usdB, usdM, signedB, signedM, usdCents, rate } from "../format.js";
+import { usdB, usdM, signedB, signedM, usdCents, cents, rate } from "../format.js";
 import { COMPANY } from "../copy.js";
 import { inPeriod } from "../model.js";
 import { baseOptions, upsert, describe } from "./base.js";
@@ -84,7 +84,7 @@ export function renderBridge(model, st, c, period) {
   const steps = [k.backlog / 100, k.conv / 100, k.overlap / 100];
   let level = k.prior / 100;
   const bars = [[0, level]], kinds = ["total"];
-  steps.forEach((d) => { bars.push([level, level + d]); kinds.push(d >= 0 ? "up" : "down"); level += d; });
+  steps.forEach((d) => { bars.push([level, level + d]); kinds.push(d > 0 ? "up" : d < 0 ? "down" : "flat"); level += d; });
   bars.push([0, k.current / 100]);
   kinds.push("total");
   const labels = [[String(year - 1), "revenue"], ["Backlog", "effect"], ["Conversion", "effect"], ["Overlap", "effect"], [String(year), "revenue"]];
@@ -112,8 +112,9 @@ export function renderBridge(model, st, c, period) {
   Object.assign(opts.scales.y, { min: yMin, max: Math.ceil(yHi / step) * step });
   opts.scales.y.ticks.stepSize = step;
 
-  const fills = kinds.map((x) => (x === "total" ? c.ink : x === "up" ? c.fav : c.unfav));
-  const fmt = (v, i) => (kinds[i] === "total" ? usdB(v) : Math.abs(v) < 5e7 ? signedM(v) : signedB(v));
+  const fills = kinds.map((x) => (x === "total" ? c.ink : x === "up" ? c.fav : x === "down" ? c.unfav : c.axis));
+  // Under $50M a step reads in millions, to the same tenth as the table beside the chart.
+  const fmt = (v, i) => (kinds[i] === "total" ? usdB(v) : Math.abs(v) < 5e7 ? signedM(v, 1) : signedB(v));
   upsert("c-bridge", {
     type: "bar",
     data: {
@@ -149,23 +150,26 @@ export function renderBridge(model, st, c, period) {
   return null;
 }
 
-// The bridge as a table in US$ millions to one decimal. Each figure is rounded once and the
-// overlap is the balancing figure, so the column foots exactly as printed; the last row
-// checks the same sum to the cent.
+// The bridge as a table in US$ millions to one decimal. Each figure is its own value rounded
+// once, so no printed step is off by more than half a tenth; when those roundings do not
+// add up, a rounding line takes up the difference and the column still foots as printed.
+// The last row checks the bridge identity itself, in dollars, to the cent.
 function renderBridgeTable(r, year) {
   const k = r.c, unit = 1e7;  // cents per $0.1M
   const P = Math.round(k.prior / unit), C = Math.round(k.current / unit);
-  const B = Math.round(k.backlog / unit), V = Math.round(k.conv / unit), O = C - P - B - V;
+  const B = Math.round(k.backlog / unit), V = Math.round(k.conv / unit), O = Math.round(k.overlapRaw / unit);
+  const R = C - P - B - V - O;
   const tenths = (x) => x * 1e5;
   const sign = (x) => (x > 0 ? "fav" : x < 0 ? "unfav" : "");
   const rows = [
     [`${year - 1} revenue (GAAP)`, usdM(tenths(P), 1), ""],
-    ["Backlog effect", signedM(tenths(B), 1), sign(B)],
-    ["Conversion effect", signedM(tenths(V), 1), sign(V)],
-    ["Overlap (balancing)", signedM(tenths(O), 1), sign(O)],
-    [`${year} revenue (GAAP)`, usdM(tenths(C), 1), "total"]
+    ["Backlog effect", signedM(tenths(B), 1), sign(k.backlog)],
+    ["Conversion effect", signedM(tenths(V), 1), sign(k.conv)],
+    ["Overlap", signedM(tenths(O), 1), sign(k.overlapRaw)]
   ];
-  const diff = k.prior + k.backlog + k.conv + k.overlap - k.current;
+  if (R) rows.push(["Rounding to $0.1M", signedM(tenths(R), 1), ""]);
+  rows.push([`${year} revenue (GAAP)`, usdM(tenths(C), 1), "total"]);
+  const diff = cents(r.current - r.prior - r.backlogEffect - r.convEffect - r.interaction);
   const html = '<table class="mini"><caption class="sr-only">Revenue bridge, ' + year + ", US$ millions</caption>" +
     '<thead><tr><th scope="col">Step</th><th scope="col" class="n">US$M</th></tr></thead><tbody>' +
     rows.map(([a, b, cls]) => `<tr class="${cls === "total" ? "total" : ""}"><th scope="row">${a}</th>` +

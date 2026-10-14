@@ -6,6 +6,7 @@ import { $, el, announce, fade } from "../dom.js";
 import { usdB, usdM, signedB, setting, pct, spoken } from "../format.js";
 import { COMPANY } from "../copy.js";
 import { baseOptions, lineSet, upsert, describe, charts } from "./base.js";
+import { summarize } from "../model.js";
 import * as store from "../state.js";
 
 function nextQuarter(q, n) {
@@ -51,7 +52,8 @@ export function renderWhatIf(model, st, c, fromInput) {
   $("peek-num").textContent = usdB(val);
   $("peek-delta").textContent = delta(val, base);
 
-  const bias = model.metrics.bias.H4.backlog[t], gap = (base / last.ttm - 1) * 100;
+  // The same summary the reconciliation checks against the published results.
+  const bias = summarize(model.forecastRows.filter((r) => r.horizon === "h4"), "recon|h4").bias.backlog[t], gap = (base / last.ttm - 1) * 100;
   $("fwd-context").textContent = `Trailing four-quarter revenue to ${last.quarter} was ${usdB(last.ttm)}, so the no-change ` +
     `scenario sits ${pct(Math.abs(gap))} ${gap >= 0 ? "above" : "below"} it.` +
     (bias == null ? "" : ` In the backtest, the backlog model's four-quarter forecasts for ${t} ran ${pct(Math.abs(bias))} ${bias >= 0 ? "high" : "low"} on average.`);
@@ -196,7 +198,7 @@ function renderFan(t, S, rows, c, st) {
       if (i !== end) return null;
       const out = [{ color: c.backlog, label: "Selected scenario", value: usdB(val), extra: usdM(val) }];
       if (!isBase) out.push({ color: c.ink, label: "No change", value: usdB(base), extra: usdM(base), dash: true });
-      out.push({ color: c.muted, label: "Range of all 25", value: usdB(mn) + " to " + usdB(mx) });
+      out.push({ color: c.muted, label: `Range of all ${all.length}`, value: usdB(mn) + " to " + usdB(mx) });
       return { title: "Four quarters to " + labels[end] + " (model scenario)", rows: out };
     }
   });

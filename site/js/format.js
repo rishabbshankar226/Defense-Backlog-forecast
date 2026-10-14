@@ -62,6 +62,10 @@ export function signedTimes(v, dp = 1) { return v == null ? NA : sign(v) + group
 /** A rate (0.4583) as a whole percentage: "46%". */
 export function rate(v) { return v == null ? NA : Math.round(v * 100) + "%"; }
 
+const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+/** A small count as a word, as prose reads it: inWords(5) -> "five". */
+export function inWords(n) { return WORDS[n] || String(n); }
+
 /** A raw scenario setting, which is already a round number: "+5%", "−1.5 pp". */
 export function setting(v, unit = "%") { return sign(v) + Math.abs(v) + unit; }
 

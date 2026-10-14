@@ -5,7 +5,7 @@
    follows one rule: green is favourable and red unfavourable, always with ▲/▼ and a sign. */
 
 import { $, el, esc } from "./dom.js";
-import { usdB, pct, pp, signedPct, times, signedTimes, longDate } from "./format.js";
+import { usdB, pct, pp, signedPct, times, signedTimes, longDate, inWords } from "./format.js";
 import { COMPANY, MODELS, NAMES, PHRASE, HORIZON, BASIS } from "./copy.js";
 import { forecastsFor, summarize, latest } from "./model.js";
 import { infoButton } from "./help.js";
@@ -50,7 +50,7 @@ export function renderHeadline(model) {
   const head = $("headline");
   head.textContent = "";
   const parts = ["Over the next four quarters, " + PHRASE[best] + " missed actual revenue by ",
-    ["num", pct(h4[best].ALL)], " on average, the lowest of three models"];
+    ["num", pct(h4[best].ALL)], ` on average, the lowest of ${inWords(MODELS.length)} models`];
   if (best === "backlog") parts.push(".");
   else parts.push(", while the backlog model missed by ", ["num", pct(h4.backlog.ALL)], ".");
   parts.forEach((p) => head.appendChild(typeof p === "string" ? document.createTextNode(p) : el("strong", p[0], p[1])));
@@ -58,9 +58,10 @@ export function renderHeadline(model) {
     const b = m.mape.H4.backlog[t], n = m.mape.H4.naive[t];
     return b != null && n != null && (best === "backlog" ? b > n : b < n);
   }).map((t) => COMPANY[t] || t);
+  const n = inWords(tickers.length);
   $("bottom-line").textContent = (best === "backlog"
-    ? "In short: across the five companies taken together, backlog was a better guide to the next year's revenue than last year's revenue."
-    : "In short: across the five companies taken together, last year's revenue was a better guide to the next year's than backlog.") +
+    ? `In short: across the ${n} companies taken together, backlog was a better guide to the next year's revenue than last year's revenue.`
+    : `In short: across the ${n} companies taken together, last year's revenue was a better guide to the next year's than backlog.`) +
     (against.length ? " " + (against.length > 1 ? against.slice(0, -1).join(", ") + " and " + against[against.length - 1] + " were the exceptions."
       : against[0] + " was the exception.") : "");
   const when = el("time", "", longDate(model.asOf));
@@ -77,10 +78,10 @@ export function renderKpis(model, st, period) {
   const s = summarize(rows, key);
   const span = period.from === period.to ? String(period.from) : period.from + "–" + period.to;
 
-  /* ----- A: all five companies ----- */
+  /* ----- A: every company, pooled ----- */
   const pool = $("kpis-pool");
   pool.textContent = "";
-  $("kpis-pool-title").textContent = `All five companies · ${HORIZON[v]} · forecast targets ${span}`;
+  $("kpis-pool-title").textContent = `All ${inWords(model.tickers.length)} companies · ${HORIZON[v]} · forecast targets ${span}`;
   const mb = s.mape.backlog && s.mape.backlog.ALL, mn = s.mape.naive && s.mape.naive.ALL;
   const nb = s.n.backlog && s.n.backlog.ALL;
   pool.appendChild(card({
@@ -169,7 +170,7 @@ export function renderScorecard(model, st, period) {
   const groups = ["ALL", ...tickers];
   const box = $("scorecard");
   const head = '<thead><tr><th scope="col">MAPE, %</th>' + groups.map((g) => g === "ALL"
-    ? '<th scope="col" class="n">All five</th>'
+    ? `<th scope="col" class="n">All ${inWords(tickers.length)}</th>`
     : `<th scope="col" class="n${g === st.ticker ? " on" : ""}"><button type="button" class="co-pick" data-t="${g}" aria-pressed="${g === st.ticker}" aria-label="Show ${esc(COMPANY[g])} (${g})">${g}</button></th>`).join("") + "</tr></thead>";
   const lowest = {};
   groups.forEach((g) => {

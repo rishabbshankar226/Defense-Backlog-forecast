@@ -7,6 +7,7 @@ skipped, so `make test` still runs the model tests on their own.
 
 import functools
 import http.server
+import re
 import threading
 from pathlib import Path
 
@@ -265,7 +266,8 @@ def test_reconciliation_passes_for_each_company_and_all_five(browser, base_url, 
         page.wait_for_function("s => document.getElementById('recon-sum').textContent.includes(s)", arg=says)
         assert page.get_attribute("#recon", "data-ok") == "true"
         summary = page.text_content("#recon-sum")
-        assert "5 of 5 checks pass" in summary and "max difference $0.00" in summary
+        passed = re.search(r"(\d+) of (\d+) checks pass", summary)
+        assert passed and passed[1] == passed[2] and "max difference $0.00" in summary
     # The bridge table foots to the cent.
     assert page.text_content("#bridge-table tfoot td").endswith("$0.00")
     assert page.errors == []

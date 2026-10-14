@@ -355,7 +355,7 @@ function externalTip(context) {
 
 /* ---------- options ---------- */
 
-const tickB = (v) => "$" + v.toLocaleString("en-US") + "B";
+const tickB = (v) => (v < 0 ? "−" : "") + "$" + Math.abs(v).toLocaleString("en-US") + "B";
 
 /**
  * Shared options with explicit axes: an axis line and tick marks on both axes, and a

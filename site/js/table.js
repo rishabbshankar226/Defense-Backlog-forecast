@@ -6,9 +6,9 @@
    of 200, so filtering stays quick on tens of thousands of rows. */
 
 import { $, el, esc, debounce, announce } from "./dom.js";
-import { usdM, signedM, pct, signedPct, times, usdCents } from "./format.js";
-import { COMPANY, NAMES, HORIZON } from "./copy.js";
-import { inPeriod } from "./model.js";
+import { usdM, signedM, pct, signedPct, times, usdCents, inWords } from "./format.js";
+import { COMPANY, NAMES, HORIZON, MODELS } from "./copy.js";
+import { inPeriod, summarize } from "./model.js";
 import { reconcile } from "./reconcile.js";
 import * as store from "./state.js";
 
@@ -104,12 +104,18 @@ function body(cols, rows, limit) {
   return html;
 }
 
-// Totals: flows add up; point-in-time balances and ratios do not, and say so.
-function foot(tab, cols, rows) {
+// Totals: flows add up; point-in-time balances and ratios do not, and say so. The error
+// figures come from the same summary as the KPIs, at the KPIs' precision, so a filtered
+// set that matches a KPI's scope prints the same number.
+function foot(tab, cols, rows, st) {
   const sum = (k) => rows.reduce((s, r) => (r[k] == null ? s : s + r[k]), 0);
+  const gaps = (k) => rows.filter((r) => r[k] == null).length;
+  const excluded = (k) => (gaps(k) ? `<span class="unit">${gaps(k)} n/a excluded</span>` : "");
+  const s = tab === "forecasts" ? summarize(rows) : null;
+  const one = tab === "forecasts" && st.model !== "all" ? st.model : null;
   const cell = (c) => {
     if (tab === "quarters") {
-      if (c.key === "revenue" || c.key === "bookings") return usdM(sum(c.key));
+      if (c.key === "revenue" || c.key === "bookings") return usdM(sum(c.key)) + excluded(c.key);
       if (c.key === "btb") {
         const both = rows.filter((r) => r.bookings != null && r.revenue != null);
         const rev = both.reduce((s, r) => s + r.revenue, 0);
@@ -118,23 +124,27 @@ function foot(tab, cols, rows) {
       if (c.key === "backlog" || c.key === "ttm") return '<span class="dim">Not additive</span>';
       return "";
     }
-    if (c.key === "error") return rows.length ? signedM(sum("error") / rows.length, 1) + '<span class="unit">mean</span>' : "n/a";
+    if (c.key === "error") {
+      return one ? signedM(sum("error") / rows.length, 1) + '<span class="unit">mean</span>' : '<span class="dim">Pick a model</span>';
+    }
     if (c.key === "ape") {
-      return rows.length ? pct(sum("ape") / rows.length, 2) + '<span class="unit">MAPE · bias ' +
-        signedPct(rows.reduce((s, r) => s + r.error / r.actual * 100, 0) / rows.length, 2) + "</span>" : "n/a";
+      // Across all three models an average miss means nothing, so each model gets its own.
+      const ms = one ? [one] : MODELS.filter((m) => s.mape[m] && s.mape[m].ALL != null);
+      return ms.map((m) => pct(s.mape[m].ALL) + `<span class="unit">${one ? "MAPE · bias " + signedPct(s.bias[m].ALL)
+        : esc(NAMES[st.view][m]) + " MAPE"}</span>`).join("");
     }
     if (c.key === "beatsNaive") {
-      const scored = rows.filter((r) => r.beatsNaive != null), w = scored.filter((r) => r.beatsNaive).length;
-      return scored.length ? `${w} of ${scored.length}<span class="unit">${pct(w / scored.length * 100)} win rate</span>` : "n/a";
+      const w = s.win.ALL;
+      return w ? `${w.wins} of ${w.n}<span class="unit">${pct(w.rate)} win rate</span>` : "n/a";
     }
     return "";
   };
-  return `<tr><th scope="row">Total · ${rows.length.toLocaleString("en-US")} rows</th>` +
+  return `<tr><th scope="row">Total of all ${rows.length.toLocaleString("en-US")} filtered rows</th>` +
     cols.slice(1).map((c) => `<td class="${c.num ? "n" : ""}">${cell(c)}</td>`).join("") + "</tr>";
 }
 
-function scopeText(st) {
-  const who = st.scope === "all" ? "all five companies" : COMPANY[st.ticker] + " (" + st.ticker + ")";
+function scopeText(model, st) {
+  const who = st.scope === "all" ? `all ${inWords(model.tickers.length)} companies` : COMPANY[st.ticker] + " (" + st.ticker + ")";
   return `${who}, ${st.from}–${st.to}`;
 }
 
@@ -155,13 +165,13 @@ export function renderTable(model, st) {
   const table = $("data");
   const caption = (tab === "quarters"
     ? "Quarterly fundamentals: backlog and revenue as first reported, US$ millions"
-    : `Backtest forecasts, ${HORIZON[st.view].toLowerCase()}, US$ millions`) + " · " + scopeText(st);
+    : `Backtest forecasts, ${HORIZON[st.view].toLowerCase()}, US$ millions`) + " · " + scopeText(model, st);
   table.querySelector("caption").textContent = caption;
   $("t-caption").textContent = caption;
   table.querySelector("thead").innerHTML = head(cols, st);
   const tbody = table.querySelector("tbody");
   if (!rows.length) {
-    tbody.innerHTML = `<tr class="empty"><td colspan="${cols.length}"><p>No rows match ${esc(scopeText(st))}` +
+    tbody.innerHTML = `<tr class="empty"><td colspan="${cols.length}"><p>No rows match ${esc(scopeText(model, st))}` +
       `${st.query ? ` and “${esc(st.query)}”` : ""}${tab === "forecasts" && st.model !== "all" ? " for this model" : ""}.</p>` +
       '<button type="button" class="btn" id="t-clear">Clear filters</button></td></tr>';
     $("t-clear").addEventListener("click", () => {
@@ -172,7 +182,7 @@ export function renderTable(model, st) {
   } else {
     tbody.innerHTML = body(cols, rows, st.limit);
   }
-  table.querySelector("tfoot").innerHTML = rows.length ? foot(tab, cols, rows) : "";
+  table.querySelector("tfoot").innerHTML = rows.length ? foot(tab, cols, rows, st) : "";
   const more = $("t-more");
   more.hidden = rows.length <= st.limit;
   more.textContent = `Show ${Math.min(PAGE, rows.length - st.limit).toLocaleString("en-US")} more of ${rows.length.toLocaleString("en-US")}`;
@@ -187,17 +197,24 @@ export function renderTable(model, st) {
 /* Reconciliation, for the companies in scope and the period shown. */
 function renderRecon(model, st) {
   const tickers = st.scope === "all" ? model.tickers : [st.ticker];
-  const checks = reconcile(model, tickers, { from: st.from, to: st.to });
+  const checks = reconcile(model, tickers, { from: st.from, to: st.to }, st.view);
   const passed = checks.filter((c) => !c.failures.length).length;
-  const maxCents = Math.max(0, ...checks.filter((c) => c.unit === "cents" && isFinite(c.maxDiff)).map((c) => c.maxDiff));
+  const cash = checks.filter((c) => c.unit === "cents");
+  // A check that fails on a missing row has no finite difference; it must not read as $0.00.
+  const missing = cash.some((c) => !isFinite(c.maxDiff));
+  const maxCents = Math.round(Math.max(0, ...cash.map((c) => c.maxDiff)));
   const ok = passed === checks.length;
+  const none = checks.every((c) => !c.n);
   const box = $("recon");
   box.dataset.ok = ok ? "true" : "false";
-  $("recon-sum").innerHTML = `<span class="${ok ? "fav" : "unfav"}">${ok ? "✓" : "✗"} ${passed} of ${checks.length} checks pass</span>` +
-    ` · max difference ${usdCents(maxCents)} · ${esc(scopeText(st))}`;
+  $("recon-sum").innerHTML = none ? `Nothing to check for ${esc(scopeText(model, st))}`
+    : `<span class="${ok ? "fav" : "unfav"}">${ok ? "✓" : "✗"} ${passed} of ${checks.length} checks pass</span>` +
+    ` · max difference ${missing ? "n/a (missing rows)" : usdCents(maxCents)} · ${esc(scopeText(model, st))}`;
+  const max = (c) => (!c.n ? "" : !isFinite(c.maxDiff) ? ", max n/a"
+    : c.unit === "cents" ? ", max " + usdCents(Math.round(c.maxDiff)) : ", max " + c.maxDiff.toExponential(1) + " pp");
   $("recon-list").innerHTML = checks.map((c) => `<li class="${c.failures.length ? "unfav" : ""}">` +
-    `<span class="mark" aria-hidden="true">${c.failures.length ? "✗" : "✓"}</span>${esc(c.name)} ` +
-    `<span class="dim">(${c.n.toLocaleString("en-US")} compared${c.unit === "cents" ? ", max " + usdCents(isFinite(c.maxDiff) ? c.maxDiff : null) : ""})</span>` +
+    `<span class="mark" aria-hidden="true">${c.failures.length ? "✗" : c.n ? "✓" : "–"}</span>${esc(c.name)} ` +
+    `<span class="dim">(${c.n ? c.n.toLocaleString("en-US") + " compared" + max(c) : "nothing in this period"})</span>` +
     (c.failures.length ? `<span class="sr-only">Failed.</span> Failed: ${esc(c.failures.slice(0, 8).join(", "))}${c.failures.length > 8 ? "…" : ""}` : "") +
     "</li>").join("");
 }
@@ -214,6 +231,7 @@ function toCsv(model, st) {
 
 /** Wire the controls once. */
 export function watchTable(model) {
+  $("t-scope").querySelector('option[value="all"]').textContent = `All ${inWords(model.tickers.length)} companies`;
   const tabs = ["quarters", "forecasts"];
   tabs.forEach((k) => $("tt-" + k).addEventListener("click", () => store.set({ tab: k, limit: PAGE })));
   $("t-tabs").addEventListener("keydown", (e) => {
