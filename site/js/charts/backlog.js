@@ -53,8 +53,7 @@ export function renderBacklog(model, st, c, period) {
   const gaps = rows.filter((r) => r.backlog == null).map((r) => r.quarter);
   describe("c-backlog", `${t} backlog and trailing four-quarter revenue by quarter. At ${last.quarter}, backlog was ` +
     `${usdB(last.backlog)} and trailing revenue ${usdB(last.ttm)}.`);
-  $("backlog-note").textContent = "US$ billions at each quarter end. Backlog is remaining performance obligations; " +
-    "revenue is the GAAP total over the trailing four quarters." +
+  $("backlog-note").textContent = "US$ billions at quarter end; revenue is the GAAP total of the trailing four quarters." +
     (gaps.length ? " Breaks in the backlog line are quarters whose filings tag no backlog for the quarter's own end: " + gaps.join(", ") + "." : "");
   return null;
 }

@@ -355,9 +355,15 @@ function externalTip(context) {
   tip.textContent = "";
   if (spec.title) tip.appendChild(el("div", "tip-title", spec.title));
   const rows = el("div", "tip-rows");
+  // A column no row fills is left out, heading and all, so the tooltip never shows an empty one.
+  const hasX = spec.rows.some((r) => r.extra), hasC = spec.rows.some((r) => r.change);
+  rows.style.gridTemplateColumns = "14px minmax(0, auto) auto" + (hasX ? " auto" : "") + (hasC ? " auto" : "");
   if (spec.cols) {
     rows.appendChild(el("span", ""));
-    spec.cols.forEach((c, i) => rows.appendChild(el("span", "tip-col" + (i ? " n" : ""), c)));
+    spec.cols.forEach((c, i) => {
+      if ((i === 2 && !hasX) || (i === 3 && !hasC)) return;
+      rows.appendChild(el("span", "tip-col" + (i ? " n" : ""), c));
+    });
   }
   // A row's variance cells take its polarity colour: `tone` for the change, `extraTone` for extra.
   const cellTone = (t) => (t === "fav" || t === "unfav" ? " " + t : "");
@@ -367,8 +373,8 @@ function externalTip(context) {
     rows.appendChild(sw);
     rows.appendChild(el("span", "tip-label", r.label));
     rows.appendChild(el("span", "tip-val", r.value));
-    rows.appendChild(el("span", "tip-x" + cellTone(r.extraTone), r.extra || ""));
-    rows.appendChild(el("span", "tip-x" + cellTone(r.tone), r.change || ""));
+    if (hasX) rows.appendChild(el("span", "tip-x" + cellTone(r.extraTone), r.extra || ""));
+    if (hasC) rows.appendChild(el("span", "tip-x" + cellTone(r.tone), r.change || ""));
   });
   tip.appendChild(rows);
   if (spec.note) {
@@ -391,18 +397,19 @@ function externalTip(context) {
 const tickB = (v) => (v < 0 ? "−" : "") + "$" + Math.abs(v).toLocaleString("en-US") + "B";
 
 /**
- * Shared options with explicit axes: a hairline axis on the left and bottom only, tick
- * marks on both, dashed horizontal gridlines and no vertical ones, and a title on each axis
- * that names the unit, the scale and the basis. Tick figures are set in the monospaced
- * face, since a canvas cannot ask for tabular figures.
+ * Shared options, the one chart theme every chart reads: a hairline baseline on the x axis
+ * with a tick mark at each year, solid hairline gridlines across the plot and none down it,
+ * no y axis line, and no y axis title. The ticks carry the unit ($B, ×) and the panel's
+ * subtitle carries the basis, so nothing is set sideways. Ticks are in the page's own face,
+ * whose digits are all one width, so figures line up without a monospaced font.
  * @param c       colours from colors()
- * @param yTitle  y-axis title, e.g. "US$ billions"
+ * @param yTitle  what the y axis measures, e.g. "US$ billions"; named in the panel, not drawn
  * @param xTitle  x-axis title, or "" for none
  * @param yTick   tick formatter; dollars in billions by default
  */
 export function baseOptions(c, yTitle, xTitle, yTick = tickB) {
-  const tick = { size: 12, family: c.mono };
-  const axisTitle = (text) => ({ display: !!text, text, color: c.muted, font: { size: 12, weight: 600 }, padding: 4 });
+  const tick = { size: 12, family: Chart.defaults.font.family };
+  const axisTitle = (text) => ({ display: !!text, text, color: c.muted, font: { size: 12, weight: 500 }, padding: 4 });
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -416,14 +423,13 @@ export function baseOptions(c, yTitle, xTitle, yTick = tickB) {
         title: axisTitle(xTitle),
         ticks: { color: c.muted, font: tick, maxRotation: 0, autoSkip: false, padding: 4, callback: yearTick },
         grid: { display: true, drawOnChartArea: false, drawTicks: true, tickLength: 4, color: c.line },
-        border: { display: true, color: c.line, width: 1 }
+        border: { display: true, color: c.axis, width: 1 }
       },
       y: {
-        title: axisTitle(yTitle),
-        ticks: { color: c.muted, font: tick, padding: 4, maxTicksLimit: 6, callback: yTick },
-        grid: { color: c.grid, drawTicks: true, tickLength: 4, tickColor: c.line },
-        // In Chart.js 4 the border's dash applies to the gridlines; the axis line stays solid.
-        border: { display: true, color: c.line, width: 1, dash: [3, 3] }
+        title: { ...axisTitle(yTitle), display: false },
+        ticks: { color: c.muted, font: tick, padding: 8, maxTicksLimit: 6, callback: yTick },
+        grid: { color: c.grid, lineWidth: 1, drawTicks: false },
+        border: { display: false }
       }
     }
   };

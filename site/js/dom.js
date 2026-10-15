@@ -50,7 +50,7 @@ export function colors() {
     line: css("--line"), grid: css("--grid"), axis: css("--axis"), cross: css("--crosshair"),
     wash: css("--wash"), track: css("--track"),
     backlog: css("--s-backlog"), naive: css("--s-naive"), drift: css("--s-drift"), ttm: css("--s-actual"),
-    fav: css("--fav"), unfav: css("--unfav"), band: css("--band"), mono: css("--mono")
+    fav: css("--fav"), unfav: css("--unfav"), band: css("--band"), total: css("--s-total")
   };
 }
 

@@ -2,7 +2,7 @@
    1.0× when backlog grew in the quarter (favourable, green) and down when it shrank
    (unfavourable, red); the direction carries the meaning as well as the colour. */
 
-import { fade } from "../dom.js";
+import { $, fade } from "../dom.js";
 import { times, usdM } from "../format.js";
 import { quartersFor } from "../model.js";
 import { baseOptions, linked, upsert, describe } from "./base.js";
@@ -46,6 +46,8 @@ export function renderBtb(model, st, c, period) {
       };
     }
   });
+  const one = times(1);
+  $("btb-key").innerHTML = `<span class="fav">▲ ≥ ${one} backlog grew</span> <span class="unfav">▼ &lt; ${one} backlog shrank</span>`;
   const shown = v.filter((x) => x != null), up = shown.filter((x) => x >= 1).length, last = rows[rows.length - 1];
   describe("c-btb", `${st.ticker} implied book-to-bill by quarter: at or above 1.0 in ${up} of ${shown.length} quarters` +
     (last.btb == null ? "." : `, and ${times(last.btb, 2)} at ${last.quarter}.`));

@@ -41,9 +41,12 @@ const FORECAST_COLS = [
   { key: "actual", label: "Actual", unit: "US$M · GAAP", num: true, get: (r) => r.actual, fmt: (r) => usdM(r.actual) },
   { key: "error", label: "Error", unit: "US$M · fcst − actual", num: true, get: (r) => r.error, fmt: (r) => signedM(r.error, 1) },
   { key: "ape", label: "Miss (APE)", unit: "% of actual", num: true, get: (r) => r.ape, fmt: (r) => pct(r.ape, 2) },
-  { key: "beatsNaive", label: "Beat naive", unit: "backlog model", get: (r) => (r.beatsNaive == null ? "" : r.beatsNaive ? "Yes" : "No"),
+  { key: "beatsNaive", label: (st) => "Beat " + NAMES[st.view].naive, csvLabel: "Beat naive", unit: "backlog model", get: (r) => (r.beatsNaive == null ? "" : r.beatsNaive ? "Yes" : "No"),
     fmt: (r) => (r.beatsNaive == null ? '<span class="dim">n/a</span>' : r.beatsNaive ? '<span class="fav">▲ Yes</span>' : '<span class="unfav">▼ No</span>'), html: true }
 ];
+
+// A column's label, which may follow the horizon's model names.
+const labelOf = (c, st) => (typeof c.label === "function" ? c.label(st) : c.label);
 
 const MODEL_ORDER = { backlog: 0, naive: 1, naive_drift: 2 };
 const memo = new Map();
@@ -82,7 +85,7 @@ function head(cols, st) {
   return "<tr>" + cols.map((c) => {
     const s = sort && sort.key === c.key ? (sort.dir === "asc" ? "ascending" : "descending") : null;
     return `<th scope="col" class="${c.num ? "n" : ""}"${s ? ` aria-sort="${s}"` : ""}>` +
-      `<button type="button" class="sort" data-key="${c.key}">${esc(c.label)}` +
+      `<button type="button" class="sort" data-key="${c.key}">${esc(labelOf(c, st))}` +
       (c.unit ? `<span class="unit">${esc(c.unit)}</span>` : "") +
       `<span class="arrow" aria-hidden="true">${s === "ascending" ? "▲" : s === "descending" ? "▼" : "↕"}</span></button></th>`;
   }).join("") + "</tr>";
@@ -130,8 +133,8 @@ function foot(tab, cols, rows, st) {
     if (c.key === "ape") {
       // Across all three models an average miss means nothing, so each model gets its own.
       const ms = one ? [one] : MODELS.filter((m) => s.mape[m] && s.mape[m].ALL != null);
-      return ms.map((m) => pct(s.mape[m].ALL) + `<span class="unit">${one ? "MAPE · bias " + signedPct(s.bias[m].ALL)
-        : esc(NAMES[st.view][m]) + " MAPE"}</span>`).join("");
+      return ms.map((m) => '<span class="pair">' + pct(s.mape[m].ALL) + `<span class="unit">${one ? "MAPE · bias " + signedPct(s.bias[m].ALL)
+        : esc(NAMES[st.view][m]) + " MAPE"}</span></span>`).join("");
     }
     if (c.key === "beatsNaive") {
       const w = s.win.ALL;
@@ -160,6 +163,8 @@ export function renderTable(model, st) {
   $("t-model-wrap").hidden = tab !== "forecasts";
   $("t-scope").value = st.scope;
   $("t-model").value = st.model;
+  // The model filter names each model as the rest of the page does at this horizon.
+  $("t-model").querySelectorAll("option").forEach((o) => { if (NAMES[st.view][o.value]) o.textContent = NAMES[st.view][o.value]; });
 
   const rows = select(model, st);
   const table = $("data");
@@ -226,7 +231,7 @@ function toCsv(model, st) {
   const cols = st.tab === "quarters" ? QUARTER_COLS : FORECAST_COLS;
   const rows = select(model, st);
   const q = (v) => (v == null ? "" : /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
-  const header = cols.map((c) => q(c.label + (c.unit ? " (" + c.unit + ")" : ""))).join(",");
+  const header = cols.map((c) => q((c.csvLabel || labelOf(c, st)) + (c.unit ? " (" + c.unit + ")" : ""))).join(",");
   // Raw values at full precision, in US dollars: the export is for checking, not reading.
   const lines = rows.map((r) => cols.map((c) => q(c.csv ? c.csv(r) : c.key === "model" ? r.model : c.get(r))).join(","));
   return [header.replace(/US\$M/g, "US$"), ...lines].join("\n") + "\n";

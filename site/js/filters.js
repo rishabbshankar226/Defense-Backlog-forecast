@@ -98,6 +98,7 @@ export function syncFilters(st, keys) {
 
 const SUN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 const MOON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M13.2 10.1A5.6 5.6 0 0 1 5.9 2.8a5.6 5.6 0 1 0 7.3 7.3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+const KEYS = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect x="1.2" y="3.7" width="13.6" height="8.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4 6.5h.01M6.7 6.5h.01M9.3 6.5h.01M12 6.5h.01M5 9.6h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 const darkMode = window.matchMedia("(prefers-color-scheme: dark)");
 
 function isDark() {
@@ -107,9 +108,9 @@ function isDark() {
 
 function syncTheme() {
   const b = $("theme"), dark = isDark();
-  b.innerHTML = dark ? SUN : MOON;
+  // The icon, and a label that shows as a tooltip on hover or focus (the name is aria-label).
+  b.innerHTML = (dark ? SUN : MOON) + `<span class="btn-lbl" aria-hidden="true">${dark ? "Light theme" : "Dark theme"}</span>`;
   b.setAttribute("aria-label", dark ? "Use the light theme" : "Use the dark theme");
-  b.title = dark ? "Light theme" : "Dark theme";
   if (document.documentElement.hasAttribute("data-theme")) {
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", css("--bg")));
   }
@@ -137,7 +138,8 @@ try { keysOn = localStorage.getItem("dbf-keys") !== "off"; } catch (e) { /* on f
 
 function syncKeys() {
   $("keys-switch").setAttribute("aria-checked", keysOn ? "true" : "false");
-  $("keys-open").textContent = keysOn ? "Shortcuts" : "Shortcuts (off)";
+  // A keyboard icon; its label is the button's name and shows as a tooltip.
+  $("keys-open").innerHTML = KEYS + `<span class="btn-lbl">${keysOn ? "Shortcuts" : "Shortcuts (off)"}</span>`;
   $("f-company").querySelectorAll("[role=radio]").forEach((b, i) => {
     if (keysOn && i < 9) b.setAttribute("aria-keyshortcuts", String(i + 1)); else b.removeAttribute("aria-keyshortcuts");
   });

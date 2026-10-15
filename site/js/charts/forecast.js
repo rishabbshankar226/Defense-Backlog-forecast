@@ -83,8 +83,8 @@ export function renderForecast(model, st, c, period) {
   if (skipped) cap += ` The backlog model skips ${skipped} origin${skipped > 1 ? "s" : ""} that need a quarter with no tagged backlog.`;
   $("miss").textContent = cap;
   $("fc-note").textContent = v === "h1"
-    ? "US$ billions. Each point is one forecast of a quarter's revenue, made a quarter ahead with only what was known then, plotted at the quarter it forecast."
-    : "US$ billions. Each point is one forecast of the next four quarters' revenue, made with only what was known then, plotted at the last of those quarters.";
+    ? "US$ billions. Each point forecasts one quarter with only what was known then."
+    : "US$ billions. Each point forecasts four quarters with only what was known then.";
   describe("c-fc", `${t} ${HORIZON[v].toLowerCase()} forecasts against actual revenue. ${cap}`);
   return null;
 }

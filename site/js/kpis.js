@@ -80,8 +80,8 @@ export function renderHeadline(model) {
   }).map((t) => COMPANY[t] || t);
   const n = inWords(tickers.length);
   $("bottom-line").textContent = (best === "backlog"
-    ? `In short: across the ${n} companies taken together, backlog was a better guide to the next year's revenue than last year's revenue.`
-    : `In short: across the ${n} companies taken together, last year's revenue was a better guide to the next year's than backlog.`) +
+    ? `Across the ${n} companies, backlog was a better guide to the next year's revenue than last year's revenue.`
+    : `Across the ${n} companies, last year's revenue was a better guide to the next year's than backlog.`) +
     (against.length ? " " + (against.length > 1 ? against.slice(0, -1).join(", ") + " and " + against[against.length - 1] + " were the exceptions."
       : against[0] + " was the exception.") : "");
   const when = el("time", "", longDate(model.asOf));
@@ -204,7 +204,8 @@ export function renderScorecard(model, st, period) {
   const head = '<colgroup><col></colgroup><colgroup span="3"></colgroup><colgroup span="2"></colgroup><colgroup><col></colgroup>' +
     '<thead><tr><th scope="col" rowspan="2">Company</th>' +
     '<th scope="colgroup" colspan="3" class="grp">Average miss (MAPE), %</th>' +
-    `<th scope="colgroup" colspan="2" class="grp">Backlog model vs ${esc(H.naive)}</th>` +
+    // The baseline's last word stays with the one before it, so "4Q" never sits alone.
+    `<th scope="colgroup" colspan="2" class="grp">Backlog model vs ${esc(H.naive).replace(/ (\S+)$/, "&nbsp;$1")}</th>` +
     `<th scope="col" rowspan="2" class="n">Forecasts scored<span class="unit">backlog model of ${esc(H.naive)}</span></th></tr><tr>` +
     MODELS.map((x) => `<th scope="col" class="n"><span class="sw sw-${x}" aria-hidden="true"></span>${esc(H[x])}</th>`).join("") +
     '<th scope="col" class="n var">Δ, pp<span class="unit">lower is better</span></th>' +
@@ -229,10 +230,14 @@ export function renderScorecard(model, st, period) {
   const box = $("scorecard");
   box.innerHTML = `<caption class="sr-only">Average forecast miss (MAPE) by company and model, ${esc(HORIZON[v].toLowerCase())}, targets ${period.from} to ${period.to}</caption>` +
     head + "<tbody>" + body + "</tbody>";
-  box.querySelectorAll(".co-pick").forEach((b) => b.addEventListener("click", () => store.set({ ticker: b.dataset.t })));
-  $("score-note").textContent = `Mean absolute percentage error of each ${HORIZON[v].toLowerCase()} forecast against actual GAAP revenue, ` +
-    `targets ${span(period)}. Lower is better; the lowest in each row is bold and underlined. Bars in a column share one scale. ` +
-    "A company name picks that company.";
+  box.querySelectorAll(".co-pick").forEach((b) => {
+    b.addEventListener("click", () => store.set({ ticker: b.dataset.t }));
+    b.closest("tr").addEventListener("click", (e) => { if (!e.target.closest(".co-pick")) b.click(); });
+  });
+  // One line; what MAPE means, that the bars share a scale and that a row picks its company sit
+  // behind the title's definition.
+  $("score-note").textContent = "Lower is better; the lowest in each row is shaded. " +
+    `${HORIZON[v]} forecasts against actual GAAP revenue, targets ${span(period)}.`;
 
   // The baselines score origins the backlog model cannot, so Δ as published compares averages
   // over different forecasts. Where it does, the note gives Δ on the origins both score.

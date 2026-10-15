@@ -30,6 +30,8 @@ export function setPanelState(panel, kind, opts = {}) {
   }
   box.textContent = "";
   box.removeAttribute("role");
+  // A quiet error is one the page already reports; the panel only says what it will show.
+  box.toggleAttribute("data-quiet", !!opts.quiet);
   if (kind === "ready") return;
   box.setAttribute("role", kind === "error" && !opts.quiet ? "alert" : "status");
   // The message sits under the panel's heading, however many lines that heading wraps to.

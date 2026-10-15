@@ -121,7 +121,7 @@ function load() {
     .catch((err) => {
       if (window.console) console.error(err);
       const msg = "The data did not load (" + (err && err.message ? err.message : "unknown error") + "). Nothing on this page is shown from stale data.";
-      PANELS.forEach((id) => setPanelState(id, "error", { msg: "Waiting for the data.", quiet: true }));
+      PANELS.forEach((id) => setPanelState(id, "error", { msg: "Shown once the data loads.", quiet: true }));
       pageState("error", msg, () => { if (model) location.reload(); else load(); });
       document.documentElement.classList.add("ready");
     });

@@ -121,7 +121,7 @@ export function renderBridge(model, st, c, period) {
   Object.assign(opts.scales.y, { min: yMin, max: Math.ceil(yHi / step) * step });
   opts.scales.y.ticks.stepSize = step;
 
-  const fills = kinds.map((x) => (x === "total" ? c.ink : x === "up" ? c.fav : x === "down" ? c.unfav : c.axis));
+  const fills = kinds.map((x) => (x === "total" ? c.total : x === "up" ? c.fav : x === "down" ? c.unfav : c.axis));
   // Under $50M a step reads in millions, to the same tenth as the table beside the chart.
   const fmt = (v, i) => (kinds[i] === "total" ? usdB(v) : Math.abs(v) < 5e7 ? signedM(v, 1) : signedB(v));
   upsert("c-bridge", {
