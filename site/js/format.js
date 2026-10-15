@@ -1,10 +1,9 @@
-/* Number formatting. Every figure on the page goes through one of these, so a unit, a
-   scale and a sign convention are never written by hand.
+/* Number formatting. Every figure goes through here, so units, scale and signs are never
+   written by hand.
 
-   Conventions:
-   - Dollars carry their scale in the string: "$230.4B", "$230,400M".
-   - Negative values use a true minus sign (U+2212), never a hyphen.
-   - null or undefined prints "n/a"; nothing is ever shown as 0 for a missing value. */
+   - Dollars carry their scale: "$230.4B", "$230,400M".
+   - Negatives use a real minus sign (U+2212).
+   - null/undefined prints "n/a", never 0. */
 
 const MINUS = "−";
 const NA = "n/a";

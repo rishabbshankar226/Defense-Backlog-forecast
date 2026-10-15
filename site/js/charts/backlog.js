@@ -1,4 +1,4 @@
-/* Backlog against trailing four-quarter revenue, by quarter, for the selected company. */
+/* Backlog vs trailing four-quarter revenue for the selected company. */
 
 import { $ } from "../dom.js";
 import { usdB, usdM, signedPct, longDate, shown } from "../format.js";
@@ -13,8 +13,8 @@ export function renderBacklog(model, st, c, period) {
   if (!rows.length) return { empty: `No quarters for ${COMPANY[t]} in ${period.from}–${period.to}.` };
 
   const labels = rows.map((r) => r.quarter);
-  // From zero for every company, so the gap between the lines shows backlog against revenue
-  // at its true scale (the coverage KPI), not against wherever the axis happened to start.
+  // Always from zero, so the gap between the lines is the real coverage and not an artefact
+  // of where the axis starts.
   const opts = linked(baseOptions(c, "US$ billions · GAAP", "Fiscal quarter"));
   opts.scales.y.beginAtZero = true;
   const ch = upsert("c-backlog", {
@@ -31,7 +31,7 @@ export function renderBacklog(model, st, c, period) {
     $colors: c,
     $crosshair: true,
     $ends: true,
-    // Each figure against the same quarter a year earlier, whichever period is shown.
+    // Year on year, same quarter, whatever period is shown.
     $tip: (pts) => {
       const r = rows[pts[0].dataIndex], all = model.byTicker[t].quarters, y = all[all.indexOf(r) - 4];
       return {

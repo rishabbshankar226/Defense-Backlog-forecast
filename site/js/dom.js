@@ -22,9 +22,8 @@ export function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 }
 
-/* One polite live region for what a change did. Rapid changes (a slider drag, arrow
-   presses) restart the wait, so only the settled state is spoken. Clearing it first makes
-   a repeat of the same sentence speak again. */
+/* One polite live region. Rapid changes restart the timer so only the settled state is
+   read; clearing it first lets a repeated sentence be read again. */
 let announceTimer = 0;
 export function announce(text, wait = 400) {
   clearTimeout(announceTimer);
@@ -42,8 +41,7 @@ export function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-/* Colour tokens, read from CSS so the charts follow the theme. Series colours identify a
-   line; fav and unfav are only ever used for a favourable or unfavourable variance. */
+/* Colour tokens from CSS so the charts follow the theme. fav/unfav are only for variances. */
 export function colors() {
   return {
     ink: css("--ink"), ink2: css("--ink-2"), muted: css("--muted"), surface: css("--surface"),

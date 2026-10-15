@@ -28,7 +28,7 @@
 <a class="skip" href="#summary">Skip to the summary</a>
 <noscript><p class="noscript">This page draws its charts with JavaScript, which is turned off. The results are also written out in the <a href="https://github.com/rishabbshankar226/defense-backlog-forecast#results">README</a>.</p></noscript>
 
-<!-- Top row: the report's title at left, the global filters and utilities at right, on one row. Sticky. -->
+<!-- Sticky header: title on the left, filters and tools on the right. -->
 <header class="top">
   <div class="wrap top-in">
     <div class="brand">
@@ -67,13 +67,11 @@
 
 <div class="wrap"><div class="page-state" id="page-state" role="status">Loading the data…</div></div>
 
-<!-- Until data.json arrives, every slot it fills, here and in the header, holds a hidden .stand-in:
-     the text or table that will replace it, as the default view shows it, with # for each digit.
-     So each slot starts at its final size, and nothing moves when the script fills it. -->
+<!-- Each slot that data.json fills holds a hidden .stand-in (the default view's text, # per digit)
+     so it starts at its final size and nothing jumps when the data lands. -->
 <main id="main" class="wrap">
 
-  <!-- The overview, on the same two columns as the charts below: the finding beside the pooled
-       KPIs, then the scorecard that breaks them down by company beside the selected company's KPIs. -->
+  <!-- Overview: finding + pooled KPIs, then scorecard + company KPIs. -->
   <section class="summary" id="summary" tabindex="-1" aria-labelledby="summary-h">
     <h2 class="sr-only" id="summary-h">Summary</h2>
     <div class="finding">
@@ -81,7 +79,6 @@
       <p class="bottom-line" id="bottom-line"><span class="stand-in" aria-hidden="true">Across the five companies, last year's revenue was a better guide to the next year's than backlog. RTX was the exception.</span></p>
       <p class="lede" id="headline"><span class="stand-in" aria-hidden="true">Over the next four quarters, repeating the last four quarters' revenue missed actual revenue by <strong class="num">#.#%</strong> on average, the lowest of three models, while the backlog model missed by <strong class="num">#.#%</strong>.</span><span class="over">Loading the results.</span></p>
       <p class="key-note">Red and green mark a variance only, always with ▲ or ▼ and a sign. <button type="button" class="info" data-help="colour" aria-expanded="false" aria-controls="def"></button></p>
-      <!-- The source line, as a printed table carries it: basis, source, period, date. -->
       <p class="meta">
         <span>Basis <strong>US GAAP, as first reported</strong>.</span>
         <span>Source <strong>SEC EDGAR XBRL</strong>.</span>
@@ -117,7 +114,7 @@
     </div>
   </section>
 
-  <!-- The selected company: trends two to a row on wide screens, then the bridge and the what-if. -->
+  <!-- Selected company's charts -->
   <div class="body">
 
     <section class="panel fig" id="p-backlog" data-state="loading" aria-labelledby="backlog-title">
@@ -235,7 +232,7 @@
     </section>
   </div>
 
-  <!-- Every row behind the charts, with totals and a reconciliation. -->
+  <!-- The rows behind the charts, with totals and the reconciliation -->
   <section class="panel table-panel" id="p-table" data-state="loading" aria-labelledby="table-title">
     <div class="p-head">
       <h2 id="table-title" tabindex="-1">Data</h2>
@@ -265,8 +262,7 @@
       <output class="count" id="t-count" for="t-search t-scope"><span class="stand-in" aria-hidden="true">Showing ## of ## rows</span></output>
       <button type="button" class="btn" id="t-export">Export CSV</button>
     </div>
-    <!-- The caption is shown here, outside the sideways scroll, so it wraps to the box's width.
-         The table keeps its own <caption> for screen readers; this copy is hidden from them. -->
+    <!-- Visible caption sits outside the scroll box so it wraps; the real <caption> is for screen readers. -->
     <p class="tbl-caption" id="t-caption" aria-hidden="true"><span class="stand-in">Quarterly fundamentals: backlog and revenue as first reported, US$ millions · Lockheed Martin (LMT), ####–####</span></p>
     <div class="tbl-scroll" id="tbl" role="tabpanel" aria-labelledby="tt-quarters" tabindex="0">
       <table class="data" id="data"><caption class="sr-only"></caption><thead></thead><tbody></tbody><tfoot></tfoot></table>
@@ -298,7 +294,7 @@
     <p><a href="https://github.com/rishabbshankar226/defense-backlog-forecast#limitations">Read the limitations in the README</a></p>
   </section>
 
-  <!-- Screen-reader messages: what a change did, said once it settles. -->
+  <!-- Live region for filter and scenario announcements -->
   <div class="sr-only" id="announce" aria-live="polite"></div>
   <p class="sr-only" id="chart-hint">Left and right arrow keys step through the chart's points, Home and End jump to the ends, Escape clears.</p>
 </main>
@@ -328,7 +324,7 @@
   <p class="keys-note" id="keys-switch-note">Turn these off if they get in the way of speech input or another tool. The arrow keys and Escape keep working.</p>
 </dialog>
 
-<!-- On narrow screens, the scenario figure floats at the foot of the screen while its readout is scrolled away. -->
+<!-- Phones: pins the scenario figure to the bottom while its readout is off screen. -->
 <div class="peek" id="peek" aria-hidden="true">
   <span class="peek-label">Scenario</span>
   <span class="peek-num" id="peek-num"></span>

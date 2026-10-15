@@ -1,9 +1,6 @@
-/* The granular table: every row behind the charts, searchable, sortable and exportable,
-   with totals and a reconciliation of the chart figures against these rows.
-
-   Performance: rows are flattened once (model.js) with a lowercase search key. A filter and
-   sort result is memoised on its inputs, and rows are written as one HTML string per page
-   of 200, so filtering stays quick on tens of thousands of rows. */
+/* Granular table: every row behind the charts, with search, sort, CSV export, totals and the
+   reconciliation. Rows are flattened once (model.js) with a lowercase search key, filter+sort
+   is memoised, and rows render 200 at a time as one HTML string. */
 
 import { $, el, esc, debounce, announce } from "./dom.js";
 import { usdM, signedM, pct, signedPct, times, usdCents, inWords } from "./format.js";
@@ -107,9 +104,8 @@ function body(cols, rows, limit) {
   return html;
 }
 
-// Totals: flows add up; point-in-time balances and ratios do not, and say so. The error
-// figures come from the same summary as the KPIs, at the KPIs' precision, so a filtered
-// set that matches a KPI's scope prints the same number.
+// Totals: flows add, balances and ratios don't (and say so). Error figures come from the
+// same summary as the KPIs, so a matching filter prints the same number.
 function foot(tab, cols, rows, st) {
   const sum = (k) => rows.reduce((s, r) => (r[k] == null ? s : s + r[k]), 0);
   const gaps = (k) => rows.filter((r) => r[k] == null).length;
@@ -131,7 +127,7 @@ function foot(tab, cols, rows, st) {
       return one ? signedM(sum("error") / rows.length, 1) + '<span class="unit">mean</span>' : '<span class="dim">Pick a model</span>';
     }
     if (c.key === "ape") {
-      // Across all three models an average miss means nothing, so each model gets its own.
+      // An average miss across all three models means nothing, so one per model.
       const ms = one ? [one] : MODELS.filter((m) => s.mape[m] && s.mape[m].ALL != null);
       return ms.map((m) => '<span class="pair">' + pct(s.mape[m].ALL) + `<span class="unit">${one ? "MAPE · bias " + signedPct(s.bias[m].ALL)
         : esc(NAMES[st.view][m]) + " MAPE"}</span></span>`).join("");
@@ -232,7 +228,7 @@ function toCsv(model, st) {
   const rows = select(model, st);
   const q = (v) => (v == null ? "" : /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
   const header = cols.map((c) => q((c.csvLabel || labelOf(c, st)) + (c.unit ? " (" + c.unit + ")" : ""))).join(",");
-  // Raw values at full precision, in US dollars: the export is for checking, not reading.
+  // Full precision, in dollars: the export is for checking, not reading.
   const lines = rows.map((r) => cols.map((c) => q(c.csv ? c.csv(r) : c.key === "model" ? r.model : c.get(r))).join(","));
   return [header.replace(/US\$M/g, "US$"), ...lines].join("\n") + "\n";
 }

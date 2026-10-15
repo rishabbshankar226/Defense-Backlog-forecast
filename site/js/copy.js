@@ -1,5 +1,4 @@
-/* Every label and definition on the page. None of it
-   holds a figure: every number is built from data.json at load. */
+/* All page labels and definitions. No figures in here; numbers come from data.json at load. */
 
 export const COMPANY = {
   HII: "Huntington Ingalls Industries",
@@ -24,7 +23,7 @@ export const PHRASE = {
   naive_drift: "repeating the last four quarters' revenue grown at its recent rate"
 };
 
-/* The basis of a figure, shown as a small tag beside it. */
+/* basis tag shown next to a figure */
 export const BASIS = { gaap: "GAAP", derived: "Derived", model: "Model" };
 
 export const HELP = {

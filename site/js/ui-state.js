@@ -1,8 +1,6 @@
-/* Loading, empty and error states for each panel, and for the page.
-
-   Every panel carries data-state="loading" in the HTML, so a skeleton of the right size is
-   on screen before any script runs and nothing shifts when the data arrives. A panel's
-   content stays in the layout under its message, so an empty or failed panel keeps its size. */
+/* Loading, empty and error states for panels and the page. Panels ship as
+   data-state="loading", so a right-sized skeleton is up before any JS runs. Content stays in
+   the layout under the message, so empty and failed panels keep their size. */
 
 import { $, el } from "./dom.js";
 

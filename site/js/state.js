@@ -1,6 +1,6 @@
-/* One store for everything the reader can choose. Modules subscribe to it; a burst of
-   changes in one frame is drawn once. The company lives in the hash and the rest in the
-   query string: #LMT?view=h1&from=2021&to=2025&shock=-5&shift=1.5 */
+/* One store for everything the reader can pick. Modules subscribe; a burst of changes in
+   one frame draws once. Company lives in the hash, the rest in the query string:
+   #LMT?view=h1&from=2021&to=2025&shock=-5&shift=1.5 */
 
 const state = {
   ticker: null, view: "h4", from: null, to: null,  // global filters

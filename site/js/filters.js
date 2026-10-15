@@ -1,5 +1,4 @@
-/* The global filters, top right: company, horizon and period. Each one drives the KPIs,
-   every chart and the table below. Also the theme switch and the keyboard shortcuts. */
+/* Global filters (company, horizon, period), plus the theme switch and keyboard shortcuts. */
 
 import { $, el, css, announce } from "./dom.js";
 import { COMPANY, HORIZON } from "./copy.js";
@@ -108,7 +107,7 @@ function isDark() {
 
 function syncTheme() {
   const b = $("theme"), dark = isDark();
-  // The icon, and a label that shows as a tooltip on hover or focus (the name is aria-label).
+  // Icon plus a tooltip label; aria-label is the name.
   b.innerHTML = (dark ? SUN : MOON) + `<span class="btn-lbl" aria-hidden="true">${dark ? "Light theme" : "Dark theme"}</span>`;
   b.setAttribute("aria-label", dark ? "Use the light theme" : "Use the dark theme");
   if (document.documentElement.hasAttribute("data-theme")) {
@@ -130,15 +129,15 @@ export function watchTheme(redraw) {
 
 /* ---------- keyboard shortcuts ---------- */
 
-// 1 to 5 pick a company, R plays the replay and ? lists them. They stand aside while a
-// text field, slider, menu or dialog has focus, or a modifier is held. Single keys can be
-// set off by speech input, so the list carries a switch that turns them off.
+// 1-5 pick a company, R plays the replay, ? lists them. Ignored while typing, in a slider,
+// menu or dialog, or with a modifier held. Speech input can fire single keys, so there's a
+// switch to turn them off.
 let keysOn = true;
 try { keysOn = localStorage.getItem("dbf-keys") !== "off"; } catch (e) { /* on for this visit */ }
 
 function syncKeys() {
   $("keys-switch").setAttribute("aria-checked", keysOn ? "true" : "false");
-  // A keyboard icon; its label is the button's name and shows as a tooltip.
+  // keyboard icon; the label doubles as name and tooltip
   $("keys-open").innerHTML = KEYS + `<span class="btn-lbl">${keysOn ? "Shortcuts" : "Shortcuts (off)"}</span>`;
   $("f-company").querySelectorAll("[role=radio]").forEach((b, i) => {
     if (keysOn && i < 9) b.setAttribute("aria-keyshortcuts", String(i + 1)); else b.removeAttribute("aria-keyshortcuts");
@@ -172,8 +171,7 @@ export function watchKeys(model) {
     if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || (t && t.isContentEditable) || dlg.open) return;
     if (e.key === "?") { e.preventDefault(); open(); return; }
     const n = /^[1-9]$/.test(e.key) ? +e.key : 0;
-    // Draw a shortcut's change at once, not on the next frame, so a quick next key (R
-    // straight after 2) acts on what is now on screen.
+    // Draw now so a quick follow-up key (R right after 2) acts on what's on screen.
     if (n && n <= model.tickers.length) { store.set({ ticker: model.tickers[n - 1] }); store.flush(); return; }
     if (e.key === "r" || e.key === "R") {
       store.flush();

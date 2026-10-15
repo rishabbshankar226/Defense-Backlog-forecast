@@ -1,11 +1,10 @@
-/* The data model. data.json is normalised once, at load, into flat row arrays. The KPIs,
-   every chart and the granular table read only from these rows, so a figure in a chart and
-   the table rows beneath it can never come from different sources.
+/* Data model. data.json is flattened once into row arrays, and the KPIs, charts and table
+   only read these, so a chart and the table under it can't disagree.
 
-   quarterRows   one row per company and quarter (reported backlog and revenue)
-   forecastRows  one row per company, horizon, origin and model (the backtest)
-   bridgeRows    one row per company and year (the revenue bridge, also in cents)
-   sens          the what-if grid per company */
+   quarterRows   company × quarter (reported backlog and revenue)
+   forecastRows  company × horizon × origin × model (the backtest)
+   bridgeRows    company × year (revenue bridge, also in cents)
+   sens          what-if grid per company */
 
 import { MODELS } from "./copy.js";
 import { cents } from "./format.js";
@@ -97,8 +96,8 @@ export function latest(model, t, period) {
   return { row: all[i], prev: all[i - 1] || null, yearAgo: all[i - 4] || null, all, i };
 }
 
-/* Error statistics over a set of forecast rows, by model and company. The KPIs, the
-   scorecard and the table footer all call this, so they agree for any filter. */
+/* Error stats over a set of forecast rows, by model and company. The KPIs, scorecard and
+   table footer all use this, so they agree under any filter. */
 const memo = new Map();
 export function summarize(rows, memoKey) {
   if (memoKey && memo.has(memoKey)) return memo.get(memoKey);
@@ -137,9 +136,9 @@ export function forecastsFor(model, view, period) {
   return model.forecastRows.filter((r) => r.horizon === view && inPeriod(r.year, period));
 }
 
-/* The same statistics on the origins the backlog model also scores. The baselines need no
-   backlog, so they score origins it cannot; keeping only shared origins makes a difference
-   between models like for like. The published results keep every origin. */
+/* Same stats on the origins the backlog model also scores. The baselines don't need backlog,
+   so they score extra origins; this keeps model comparisons like for like. The published
+   results keep every origin. */
 export function sharedSummary(rows, memoKey) {
   const scored = new Set(rows.filter((r) => r.model === "backlog").map((r) => r.ticker + "|" + r.horizon + "|" + r.origin));
   return summarize(rows.filter((r) => scored.has(r.ticker + "|" + r.horizon + "|" + r.origin)), memoKey);

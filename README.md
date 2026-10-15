@@ -40,7 +40,7 @@ The design, windows and companies were fixed before any result existed, in [docs
 - **Scoring.** APE is the absolute error over actual revenue. MAPE is its mean; ALL pools every forecast. Win rate is the share of origins where the backlog model's APE is below the naive model's.
 - **Bridge.** Each year's revenue change splits into a backlog effect, a conversion effect and their interaction, with no residual beyond rounding.
 
-The Excel model ([output/defense_backlog_model.xlsx](output/defense_backlog_model.xlsx)) rebuilds every forecast with live formulas. A separate checker, kept outside this repository, pulls the SEC data itself, recomputes every figure in the results, the workbook, the dashboard data and these documents, and compares.
+The Excel model ([output/defense_backlog_model.xlsx](output/defense_backlog_model.xlsx)) rebuilds every forecast with live formulas.
 
 ## Data
 

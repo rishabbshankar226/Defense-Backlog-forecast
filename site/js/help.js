@@ -1,6 +1,5 @@
-/* Definitions: one toggletip per term. The bubble is a single live region shared by every
-   ⓘ button; filling it is announced, and the button keeps focus, so Escape or a second
-   press closes it where you are. */
+/* Definitions as toggletips. One shared live-region bubble; the button keeps focus, so
+   Escape or a second press closes it in place. */
 
 import { HELP } from "./copy.js";
 import { $, el } from "./dom.js";

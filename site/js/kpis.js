@@ -1,11 +1,6 @@
-/* The overview: the finding in one sentence, the pooled KPIs, the scorecard and the selected
-   company's KPIs.
-
-   Every KPI cell shows, top to bottom: what it is; a badge for its basis (GAAP / Derived /
-   Model) and unit, then a caption; the current value; and the variance, as a pill, with the
-   baseline it is compared with. The four parts sit on row tracks shared across a strip,
-   so values line up. Variance colour follows one rule: green is favourable and red
-   unfavourable, always with ▲/▼ and a sign. */
+/* Overview: the finding, pooled KPIs, scorecard and the selected company's KPIs. Each KPI
+   cell stacks label, value, variance and basis on row tracks shared across its strip.
+   Green is favourable, red unfavourable, always with ▲/▼ and a sign. */
 
 import { $, el, esc } from "./dom.js";
 import { usdB, signedB, pct, pp, signedPct, times, signedTimes, longDate, inWords, shown } from "./format.js";
@@ -14,9 +9,8 @@ import { forecastsFor, summarize, sharedSummary, latest } from "./model.js";
 import { infoButton } from "./help.js";
 import * as store from "./state.js";
 
-/** Favourable, unfavourable or neutral, from a difference and which way is good. The
-    difference is judged as it prints, at `dp` decimals, so a change that reads as zero is
-    never coloured. */
+/** Favourable, unfavourable or neutral from a difference and which way is good. Judged at
+   `dp` decimals, so anything that prints as zero stays uncoloured. */
 function tone(d, higherIsBetter, dp = 1) {
   const r = shown(d, dp);
   if (r == null || r === 0 || higherIsBetter == null) return "neutral";
@@ -32,8 +26,7 @@ function card({ id, label, basis, unit, caption, value, cmp, delta, change, good
   head.appendChild(el("h4", "kpi-label", label));
   if (help) head.appendChild(infoButton(help));
   a.appendChild(head);
-  // The basis and unit lead the caption, so the head is the label and its definition alone.
-  // Always four parts, so each takes its own row track and the strip's rows line up.
+  // Basis and unit lead the caption. Always four parts, so the row tracks line up.
   const sub = el("p", "kpi-unit");
   sub.appendChild(el("span", "tag", basis + " · " + unit));
   if (caption) sub.appendChild(document.createTextNode(" " + caption));
@@ -41,8 +34,7 @@ function card({ id, label, basis, unit, caption, value, cmp, delta, change, good
   a.appendChild(el("p", "kpi-val", value));
   const foot = el("div", "kpi-foot");
   if (change) {
-    // Each part of the change keeps to one line, the glyph with the first figure, so a
-    // narrow cell breaks it only between parts.
+    // Keep each part on one line (glyph with its figure) so narrow cells only break between parts.
     const d = el("p", "kpi-delta " + t);
     change.split(" · ").forEach((part, i) => {
       const span = el("span", "nw");
@@ -63,7 +55,7 @@ function card({ id, label, basis, unit, caption, value, cmp, delta, change, good
 const versus = (abs, d, base, words) => abs + (base ? " · " + signedPct(d / Math.abs(base) * 100) : "") +
   (words && d ? " " + (d > 0 ? words[0] : words[1]) : "");
 
-/** The finding, built from the full-sample results. The sentence is kept word for word. */
+/** The finding, from the full-sample results. */
 export function renderHeadline(model) {
   const m = model.metrics, h4 = m.mape.H4, tickers = model.tickers;
   const best = MODELS.slice().sort((a, b) => h4[a].ALL - h4[b].ALL)[0];
@@ -166,8 +158,7 @@ export function renderCompanyKpis(model, st, period) {
   co.appendChild(card({
     id: "kpi-coverage", label: "Backlog coverage", basis: BASIS.derived, unit: "×", help: "coverage",
     caption: "Backlog ÷ trailing four-quarter revenue (years)",
-    // Two decimals throughout, the precision of the change, so a small change never sits
-    // between a value and a comparison that print alike.
+    // Two decimals everywhere, so a small change never sits between two figures that print the same.
     value: times(cov, 2), cmp: y ? `vs. ${times(covY, 2)}${ago}` : "No year-earlier quarter",
     delta: dc, dp: 2, change: dc == null ? "" : versus(signedTimes(dc, 2), dc, covY) + " YoY", good: true
   }));
@@ -181,16 +172,14 @@ export function renderCompanyKpis(model, st, period) {
   }));
 }
 
-// A variance bar on a scale centred on zero: share runs from −1 to 1. Decoration only; the
-// figure beside it carries the value, its sign and ▲/▼.
+// Variance bar centred on zero (share -1 to 1). Decoration; the figure carries the meaning.
 const vbar = (share) => `<span class="vbar" aria-hidden="true"><i style="${share < 0 ? "right" : "left"}:50%;` +
   `width:${(Math.min(1, Math.abs(share)) * 50).toFixed(1)}%"></i></span>`;
 const glyph = (t, d) => (t === "neutral" ? "" : d > 0 ? "▲ " : "▼ ");
 const said = (t) => (t === "fav" ? '<span class="sr-only"> (favourable)</span>' : t === "unfav" ? '<span class="sr-only"> (unfavourable)</span>' : "");
 
-/* The scorecard, a variance table: a row for all five companies pooled and one for each,
-   with the three models' average miss, the backlog model's difference from the baseline and
-   its win rate, each with a bar on one scale for the column, and the forecasts scored. */
+/* Scorecard: a pooled row plus one per company. Average miss per model, the backlog model's
+   Δ vs the baseline and its win rate (each with a bar on a per-column scale), forecasts scored. */
 export function renderScorecard(model, st, period) {
   const v = st.view, H = NAMES[v], tickers = model.tickers;
   const rows = forecastsFor(model, v, period), key = v + "|" + period.from + "|" + period.to;
@@ -234,13 +223,12 @@ export function renderScorecard(model, st, period) {
     b.addEventListener("click", () => store.set({ ticker: b.dataset.t }));
     b.closest("tr").addEventListener("click", (e) => { if (!e.target.closest(".co-pick")) b.click(); });
   });
-  // One line; what MAPE means, that the bars share a scale and that a row picks its company sit
-  // behind the title's definition.
+  // One line. What MAPE means, the shared bar scale and row picking live in the title's definition.
   $("score-note").textContent = "Lower is better; the lowest in each row is shaded. " +
     `${HORIZON[v]} forecasts against actual GAAP revenue, targets ${span(period)}.`;
 
-  // The baselines score origins the backlog model cannot, so Δ as published compares averages
-  // over different forecasts. Where it does, the note gives Δ on the origins both score.
+  // The baselines score origins the backlog model can't, so the published Δ compares different
+  // sets. When it does, the note also gives Δ on the shared origins.
   const nb = m(s.n, "backlog", "ALL") || 0, nn = m(s.n, "naive", "ALL") || 0;
   const short = groups.filter((g) => (m(s.n, "naive", g) || 0) > (m(s.n, "backlog", g) || 0));
   const shared = short.filter((g) => delta(g, sh) != null)

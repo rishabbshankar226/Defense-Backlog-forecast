@@ -1,5 +1,4 @@
-/* Each model's forecasts against actual revenue for the selected company and horizon, and
-   the replay that steps through them in the order they were made. */
+/* Forecasts vs actual revenue for the selected company and horizon, plus the replay. */
 
 import { $, el, still } from "../dom.js";
 import { usdB, signedM, pct, signedPct } from "../format.js";
@@ -51,8 +50,7 @@ export function renderForecast(model, st, c, period) {
       v === "h1" ? "Quarter forecast" : "Last of the four quarters forecast"))
   }, {
     $colors: c, $crosshair: true, $ends: true, $band: true, $upto: null, $miss: worstMark, $worst: worstMark,
-    // Period, actual, each model's forecast and its variance, to the table's precision. The
-    // backlog model's variance is green when it missed by less than the baseline, red when by more.
+    // Cells at table precision. Backlog model variance: green if it beat the baseline, red if not.
     $tip: (pts) => {
       const i = pts[0].dataIndex, b = list[i], bk = b.rows.backlog, nv = b.rows.naive;
       const tone = bk && bk.beatsNaive != null ? (bk.beatsNaive ? "fav" : "unfav") : null;
@@ -91,8 +89,8 @@ export function renderForecast(model, st, c, period) {
 
 /* ---------- replay ---------- */
 
-// The chart can be played back in the order the forecasts were made: a head moves along
-// the quarters, everything after it is hidden, and each model's running average miss updates.
+// Replay: a head walks the quarters in the order the forecasts were made, hides what's after
+// it, and updates each model's running average miss.
 const replay = { at: null, raf: 0, playing: false, n: 0, k: -1, rows: null, list: null };
 const PLAY = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M4.5 2.8v10.4L13 8z" fill="currentColor"/></svg>';
 const PAUSE = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M4 3h3v10H4zM9 3h3v10H9z" fill="currentColor"/></svg>';
@@ -160,7 +158,7 @@ function writeReplay(k, all) {
 }
 
 function syncPlay() {
-  // One name, with its pressed state saying whether it is playing; only the icon changes.
+  // Same name throughout; aria-pressed says whether it's playing.
   const b = $("play");
   b.innerHTML = replay.playing ? PAUSE : PLAY;
   b.appendChild(el("span", "", "Replay"));
@@ -196,8 +194,8 @@ function pause() {
   syncPlay();
 }
 
-// Also resets the button, so it never reads "Pause" over a stopped replay (a redraw to an
-// empty period skips setupReplay).
+// Reset the button too, so it can't say Pause over a stopped replay (an empty period
+// skips setupReplay).
 function stopReplay() {
   cancelAnimationFrame(replay.raf);
   replay.playing = false;

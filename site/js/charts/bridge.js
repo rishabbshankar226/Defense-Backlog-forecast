@@ -1,7 +1,6 @@
-/* The revenue bridge: how one year's revenue got from the year before's, split into a
-   backlog effect, a conversion effect and their overlap. The bars are built from whole
-   cents with the overlap as the plug, so the last step lands exactly on the current-year
-   bar, and the table beside the chart foots at the precision it shows. */
+/* Revenue bridge: prior year to current year through a backlog effect, a conversion effect
+   and their overlap. Built in whole cents with the overlap as the plug, so the last step
+   lands exactly on the current-year bar and the side table foots. */
 
 import { $, el } from "../dom.js";
 import { usdB, usdM, signedB, signedM, usdCents, cents, pct, pp } from "../format.js";
@@ -22,15 +21,15 @@ function driver(bk, cv) {
     : "The bigger driver was turning " + (cv >= 0 ? "more" : "less") + " of the backlog into revenue. ";
 }
 
-// Conversion to one decimal, or two where one would print both years alike, so the sentence
-// never calls conversion unchanged beside a conversion effect the chart shows.
+// One decimal, or two if one would print both years the same. Otherwise the caption could
+// say conversion was flat next to a visible conversion effect.
 function conversion(c0, c1) {
   const dp = pct(c0 * 100) === pct(c1 * 100) ? 2 : 1;
   const a = pct(c0 * 100, dp), b = pct(c1 * 100, dp);
   return a === b ? `Conversion held at ${b} of starting backlog.` : `Conversion went from ${a} to ${b} of starting backlog.`;
 }
 
-// The width of the widest word in the chart's tick font, measured once on a spare canvas.
+// widest tick word, measured once on a spare canvas
 let measure = null;
 function widest(words, size) {
   measure = measure || document.createElement("canvas").getContext("2d");
@@ -105,8 +104,7 @@ export function renderBridge(model, st, c, period) {
   const opts = baseOptions(c, "US$ billions · GAAP", "");
   opts.layout = { padding: { top: 20, right: 8 } };
   opts.interaction = { mode: "nearest", intersect: true };
-  // When the full step names are wider than the space each bar has, they shorten so they
-  // don't run together; the tooltip and the table beside the chart keep the full names.
+  // Shorten step names when they'd collide; the tooltip and table keep the full names.
   const narrow = [[String(year - 1), "revenue"], ["Backlog"], ["Conv."], ["Overlap"], [String(year), "revenue"]];
   const need = widest(labels.flat(), opts.scales.x.ticks.font.size) + 4;
   opts.scales.x.ticks.callback = function (v, i) {
@@ -160,10 +158,8 @@ export function renderBridge(model, st, c, period) {
   return null;
 }
 
-// The bridge as a table in US$ millions to one decimal. Each figure is its own value rounded
-// once, so no printed step is off by more than half a tenth; when those roundings do not
-// add up, a rounding line takes up the difference and the column still foots as printed.
-// The last row checks the bridge identity itself, in dollars, to the cent.
+// Bridge table in $M to one decimal. Each figure is rounded once; if the roundings don't add
+// up, a rounding line makes the column foot. The last row checks the identity to the cent.
 function renderBridgeTable(r, year) {
   const k = r.c, unit = 1e7;  // cents per $0.1M
   const P = Math.round(k.prior / unit), C = Math.round(k.current / unit);
@@ -188,9 +184,8 @@ function renderBridgeTable(r, year) {
   $("bridge-table").innerHTML = html;
 }
 
-// The levels behind the steps: each year's starting backlog and annual conversion, with the
-// change worked from unrounded figures, so the effects can be followed from their inputs.
-// Shown without colour: the steps they produce carry it. Reconciled in reconcile.js.
+// Drivers: starting backlog and annual conversion per year, change from unrounded figures.
+// No colour here, the steps carry it. Checked in reconcile.js.
 function renderDrivers(r, year) {
   const db = r.backlogStart - r.backlogStartPrior, dc = (r.conv - r.convPrior) * 100;
   const row = (label, unit, a, b, d) => `<tr><th scope="row">${label}<span class="unit">${unit}</span></th>` +

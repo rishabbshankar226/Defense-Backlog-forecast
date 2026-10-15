@@ -1,8 +1,6 @@
-/* Entry point: load data.json, build the model, and mount each part of the page.
-
-   Load path: every failure (network, HTTP status, bad JSON, or a throw while starting)
-   ends in the page-level error with a retry. After that, each panel draws inside its own
-   guard, so one failing panel shows its own error and the rest of the page still works. */
+/* Entry point: load data.json, build the model, mount the page. Any load failure (network,
+   HTTP, bad JSON, a throw on start) ends in the page-level error with a retry. After that
+   each panel renders in its own guard, so one broken panel doesn't take the page down. */
 
 import { $, colors, still, onMotionChange } from "./dom.js";
 import { buildModel } from "./model.js";
@@ -42,8 +40,8 @@ const PARTS = [
 function draw(st, keys) {
   const p = store.period(), c = colors();
   syncFilters(st, keys);
-  // An empty panel under a narrowed period offers the way back to every year. The button
-  // goes once the panel redraws, so focus moves to the panel's heading rather than the page.
+  // An empty panel under a narrowed period offers Show all years. The button goes on redraw,
+  // so focus moves to the panel heading.
   const narrowed = st.from !== st.bounds.minYear || st.to !== st.bounds.maxYear;
   const widen = (panel) => ({ label: "Show all years", run: () => {
     store.set({ from: st.bounds.minYear, to: st.bounds.maxYear });
@@ -83,9 +81,8 @@ function start(json) {
     $("summary").scrollIntoView({ block: "start" });
     $("summary").focus({ preventScroll: true });
   });
-  // Nothing that takes focus may sit under the sticky header (WCAG 2.4.11). Its height
-  // changes as the filters wrap, so scroll-padding follows the measured height, and a
-  // focused element that still lands under it is scrolled clear.
+  // Nothing focusable should hide under the sticky header (WCAG 2.4.11). Its height changes as
+  // the filters wrap, so scroll-padding tracks it, and anything still under it gets scrolled clear.
   const header = document.querySelector(".top");
   if (window.ResizeObserver) {
     new ResizeObserver(() => document.documentElement.style.setProperty("--top-h", header.offsetHeight + "px")).observe(header);
@@ -101,7 +98,7 @@ function start(json) {
     if (model.tickers.includes(h)) store.set({ ticker: h });
   });
 
-  // Colours and motion are read when drawing, so a theme or motion change redraws everything.
+  // Colours and motion are read at draw time, so a theme or motion change redraws everything.
   const redraw = () => draw(store.get(), null);
   watchTheme(redraw);
   onMotionChange(() => { $("play").hidden = still(); redraw(); });
@@ -127,6 +124,6 @@ function load() {
     });
 }
 
-// Kept for debugging from the console: the charts and the model.
+// for poking at from the console
 window.dbf = { charts, get model() { return model; } };
 load();

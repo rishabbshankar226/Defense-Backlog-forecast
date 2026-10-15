@@ -1,8 +1,4 @@
-/* Defense backlog forecast dashboard.
-   Print finance: a warm neutral page, ink close to warm black, one deep ink blue for the
-   backlog series and focus, and red/green reserved for favourable and unfavourable variance
-   only. Structure comes from hairline rules and alignment, not boxes. One variable face,
-   IBM Plex Sans, at 400, 500 and 600, with tabular lining figures wherever numbers stack. */
+/* Defense backlog dashboard. Tokens first, then components roughly top to bottom. */
 
 /* ---------- font ---------- */
 
@@ -13,9 +9,8 @@
   font-style: normal;
   font-display: swap;
 }
-/* A loading stand-in writes each digit as #, which in Plex is wider than a digit (713 units
-   against 600). This face covers # alone and scales it to a digit's width, so a stand-in
-   takes exactly the room of the figures that replace it. */
+/* Stand-ins write digits as #, which is wider than a digit in Plex (713 vs 600 units).
+   This face covers # only and scales it down, so a stand-in is exactly as wide as the number. */
 @font-face {
   font-family: "Stand-in Digit";
   src: url(fonts/ibm-plex-sans-wght.woff2) format("woff2");
@@ -23,8 +18,7 @@
   unicode-range: U+0023;
   size-adjust: 84.15%;
 }
-/* A local face sized to Plex's metrics, so text set before the file arrives takes the same
-   room and nothing moves when Plex swaps in. */
+/* Local fallback sized to Plex's metrics so the swap doesn't shift any text. */
 @font-face {
   font-family: "Plex Fallback";
   src: local("Arial"), local("ArialMT"), local("Helvetica Neue"), local("Roboto");
@@ -37,10 +31,10 @@
 /* ---------- tokens ---------- */
 
 :root {
-  /* The system stack stays behind the family, so a glyph Plex lacks falls back per glyph. */
+  /* System stack behind Plex for per-glyph fallback. */
   --font: "IBM Plex Sans Var", "Plex Fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  /* Type scale, in rem so a reader's own default size carries through. */
+  /* Type scale in rem so the reader's default size carries through. */
   --fs-2xs: 0.75rem;      /* 12px: the smallest text, axis ticks and footnote marks */
   --fs-xs: 0.8125rem;     /* 13px: labels, notes, table cells */
   --fs-sm: 0.875rem;      /* 14px: running text */
@@ -48,14 +42,14 @@
   --fs-lg: 1.125rem;      /* 18px */
   --fs-title: 1.25rem;    /* 20px: the page title */
   --fs-xl: 1.375rem;      /* 22px: a KPI figure */
-  --fs-finding: 1.625rem; /* 26px: the answer, the largest type on the page */
+  --fs-finding: 1.625rem; /* 26px: the finding */
 
-  /* Weights: one variable face at three. */
+  /* Weights */
   --w-regular: 400;
   --w-medium: 500;
   --w-strong: 600;
 
-  /* Spacing, on a 4px scale. */
+  /* Spacing, 4px scale. */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -69,12 +63,12 @@
   --pad: var(--sp-4);
   --radius: 2px;
 
-  /* Interface motion only: short, ease-out, on transform and opacity. */
+  /* Motion: short, ease-out, transform/opacity only. */
   --dur: 160ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --top-h: 64px;
 
-  /* Light: paper, not cream. */
+  /* Light */
   --bg: #f5f4f1;
   --surface: #fbfaf8;
   --sunken: #efede9;
@@ -86,31 +80,30 @@
   --muted: #5f5a52;
   --line: #c4bfb6;
   --line-soft: #dedad3;
-  --rule: #1c1a17;       /* the ink rule that opens each section */
+  --rule: #1c1a17;       /* section rule */
   --grid: #e3e0da;
   --axis: #847e74;
   --crosshair: rgba(28, 26, 23, 0.35);
   --wash: rgba(66, 62, 56, 0.07);
-  --mark: rgba(29, 63, 110, 0.10);   /* behind the lowest figure in a scorecard row */
+  --mark: rgba(29, 63, 110, 0.10);   /* lowest figure in a scorecard row */
   --band: rgba(29, 63, 110, 0.12);
   --focus: #1d3f6e;
   --on-ink: #fbfaf8;
-  /* Only what floats (a tooltip, a definition) casts a shadow; a dialog dims the page. */
+  /* Only floating things (tooltip, definition) get a shadow. */
   --shadow-float: 0 4px 12px rgba(28, 26, 23, 0.10);
   --scrim: rgba(28, 26, 23, 0.40);
 
-  /* Sections are separated by an ink rule and space, never a card. */
   --panel-bg: transparent;
   --panel-rule: 1px solid var(--rule);
 
-  /* Series identity: never red or green. */
+  /* Series colours. Never red or green. */
   --s-actual: #1c1a17;
   --s-backlog: #1d3f6e;
   --s-naive: #77716a;
   --s-drift: #47423c;
-  --s-total: #47423c;   /* a bridge's start and end totals: a neutral, never the brightest mark */
+  --s-total: #47423c;   /* bridge start/end totals */
 
-  /* Variance only: coloured text, always with a triangle and a sign. */
+  /* Variance colours, always paired with a triangle and a sign. */
   --fav: #1a6638;
   --unfav: #a2262b;
   --fav-bg: #e9f2ec;
@@ -121,8 +114,7 @@
   color-scheme: light;
 }
 
-/* Dark: a warm dark of its own, not the light page inverted. Ink is warm paper, the
-   accent a lifted ink blue, rules low and brown-grey. */
+/* Dark. Not an inversion: warm dark ground, lifted blue. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #161412; --surface: #1d1b18; --sunken: #1b1916; --recessed: #201e1a; --track: #2a2723;
@@ -181,14 +173,12 @@ button { cursor: pointer; }
   padding: var(--sp-2) var(--sp-3); background: var(--ink); color: var(--on-ink);
   font-weight: var(--w-strong); text-decoration: none; border-radius: var(--radius);
 }
-/* Out of sight, and out of the contrast check, until it has focus. */
+/* Hidden until focused. */
 .skip:not(:focus) { width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .noscript { margin: var(--sp-4); padding: var(--sp-3); border: 1px solid var(--line); background: var(--surface); }
 
-/* A label is sentence case, medium weight, muted: never tracked capitals. */
 .eyebrow { font-size: var(--fs-sm); font-weight: var(--w-medium); line-height: 1.4; color: var(--muted); }
-/* A basis or unit (GAAP, Derived, Model, US$B) is quiet type beside its figure, not a chip. */
 .tag {
   display: inline; padding: 0; border: 0;
   font-size: var(--fs-xs); font-weight: var(--w-medium); color: var(--muted); white-space: nowrap;
@@ -209,8 +199,7 @@ button { cursor: pointer; }
 .btn[aria-disabled="true"] { color: var(--muted); border-color: var(--line); cursor: default; }
 .link { border: 0; background: none; padding: 0; color: var(--focus); text-decoration: underline; font-size: var(--fs-xs); }
 
-/* Segmented radio groups: company, horizon, bridge year. Until the data comes, a stand-in's
-   spans take the buttons' boxes. */
+/* Segmented radio groups (company, horizon, bridge year). */
 .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--axis); border-radius: var(--radius); background: var(--surface); }
 .seg > .stand-in { display: contents; }
 .seg button, .seg > .stand-in > span {
@@ -221,7 +210,7 @@ button { cursor: pointer; }
 .seg button:hover { color: var(--ink); background: var(--wash); }
 .seg [aria-checked="true"], .seg [aria-pressed="true"],
 .seg [aria-checked="true"]:hover, .seg [aria-pressed="true"]:hover { background: var(--ink); color: var(--on-ink); }
-/* Inside a segmented control the ring is drawn inset, so it never runs into a neighbour. */
+/* Inset ring so it doesn't run into the next segment. */
 .seg button:focus-visible { outline-offset: -4px; }
 .seg [aria-checked="true"]:focus-visible, .seg [aria-pressed="true"]:focus-visible { outline-color: var(--on-ink); }
 
@@ -239,8 +228,7 @@ input[type="search"] { width: 100%; }
 .info:hover, .info[aria-expanded="true"] { color: var(--ink); }
 .info svg { display: block; }
 
-/* A utility is an icon button. Its name is a label that shows as a tooltip on hover or
-   keyboard focus, and is read as the button's name either way. */
+/* Icon buttons: the label shows as a tooltip on hover/focus and doubles as the accessible name. */
 .tool { position: relative; }
 .tool svg { display: block; }
 .tool .btn-lbl {
@@ -254,30 +242,28 @@ input[type="search"] { width: 100%; }
   font-size: var(--fs-xs); font-weight: var(--w-medium); line-height: 20px; pointer-events: none;
 }
 
-/* ---------- header: the report's title left, the global filters right, one row ---------- */
+/* ---------- header ---------- */
 
 .top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); }
 .top-in { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-3) var(--sp-6); padding-top: var(--sp-3); padding-bottom: var(--sp-3); flex-wrap: wrap; }
 .brand { min-width: 0; }
 h1 { font-size: var(--fs-title); font-weight: var(--w-strong); line-height: 1.2; letter-spacing: -0.005em; }
 .h1-sub { display: block; margin-top: var(--sp-1); font-size: var(--fs-sm); font-weight: var(--w-regular); letter-spacing: 0; color: var(--muted); }
-/* The report's basis, source, period and date: a source line under the finding. */
+/* source line under the finding */
 .meta { font-size: var(--fs-xs); line-height: 1.6; color: var(--muted); }
 .meta > span, .meta > a { display: inline-block; margin-right: var(--sp-3); white-space: nowrap; }
 .meta strong { font-weight: var(--w-medium); color: var(--ink-2); }
-/* Each filter is its label over its control, so the toolbar takes one row. */
 .filters { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: flex-end; gap: var(--sp-3) var(--sp-6); margin-left: auto; }
 .f { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
 .f-label { font-size: var(--fs-xs); font-weight: var(--w-medium); line-height: 16px; color: var(--muted); white-space: nowrap; }
 .f-name { font-weight: var(--w-medium); color: var(--ink); }
 .f-name:not(:empty)::before { content: ": "; color: var(--muted); }
-/* As a flex box the label drops the space before the company's name, so it reads "Company: X". */
+/* flex drops the space before the company name */
 #f-company-label { display: inline-flex; }
 .period { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--muted); }
-/* Every control in the toolbar is 30px tall, a segment's height, so the labels sit level. */
+/* Toolbar controls are all 30px so the labels line up. */
 .period select, .f .btn { min-height: 30px; height: 30px; }
-.period select:empty { min-width: 67px; }  /* the width a year gives it */
-/* The view's state and the utilities: "Default view" over Reset, the icons beside it. */
+.period select:empty { min-width: 67px; }  /* fits a year */
 .f-active { padding-left: var(--sp-6); border-left: 1px solid var(--line); }
 .f-count { font-size: var(--fs-xs); line-height: 16px; color: var(--muted); white-space: nowrap; }
 .f-count strong { color: var(--ink); font-weight: var(--w-strong); }
@@ -288,43 +274,37 @@ h1 { font-size: var(--fs-title); font-weight: var(--w-strong); line-height: 1.2;
 
 .page-state { margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
 .page-state[role="alert"] { border-left-color: var(--unfav); background: var(--unfav-bg); border-color: var(--unfav-line); }
-/* While loading, every panel says so over its skeleton, so the page's own message is only
-   read, not shown, and the page does not move up when it goes. A failure is shown. */
+/* Each panel shows its own skeleton while loading, so the page message is screen-reader only
+   (no jump when it goes). Errors are visible. */
 .page-state[role="status"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 /* ---------- summary and KPIs ---------- */
 
 main.wrap { padding-top: var(--sp-6); padding-bottom: var(--sp-6); }
-/* The finding and the scorecard take the wider column; the KPIs sit at their right. */
 .summary { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--sp-8) var(--gap-col); align-items: start; }
 .summary:focus { outline: none; }
-/* No cards: each section opens on an ink rule, with space between. */
 .finding, .panel { background: var(--panel-bg); border: 0; border-top: var(--panel-rule); border-radius: 0; }
 .finding { padding-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); align-self: stretch; }
-/* The answer to the title's question, and the largest type on the page; the sentence that
-   carries the figures follows it as its deck. */
+/* The finding: biggest type on the page. */
 .bottom-line { font-size: var(--fs-finding); font-weight: var(--w-regular); line-height: 1.3; letter-spacing: -0.012em; color: var(--ink); max-width: 30em; text-wrap: pretty; }
 .lede { font-size: var(--fs-md); line-height: 1.5; color: var(--ink-2); max-width: 62ch; text-wrap: pretty; }
 .lede .num { font-weight: var(--w-strong); color: var(--ink); }
 .key-note { order: 2; font-size: var(--fs-xs); color: var(--muted); max-width: 72ch; }
-/* What the finding covers, under its evidence as a caption rather than a label over it. */
 .finding-scope { order: 1; margin-top: calc(-1 * var(--sp-2)); font-size: var(--fs-xs); font-weight: var(--w-regular); color: var(--muted); }
 .lede .over { color: var(--muted); }
 html[data-load="error"] .lede .over { visibility: hidden; }
 html[data-load="error"] .lede:has(> .stand-in)::after { content: "Shown once the data loads."; position: absolute; top: 0; left: 0; color: var(--muted); }
 .finding .meta { order: 3;  margin-top: auto; padding-top: var(--sp-2); border-top: 1px solid var(--line-soft); }
 
-/* Each strip of KPIs opens on an ink rule; its cells are divided by hairlines, drawn by the
-   strip's own colour showing through a 1px gap between cells on the page's ground. */
+/* The hairlines between cells are the strip's background showing through a 1px gap. */
 .kpis { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; border-top: var(--panel-rule); padding-top: var(--sp-3); }
 .kpis > .kpi-title { min-height: 0; }
 .kpi-title .eyebrow { font-size: var(--fs-sm); color: var(--ink); }
 .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line-soft); }
 .kpi-row.pool { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .kpi-row.co { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-/* A cell spans four row tracks of its strip (subgrid), in one order everywhere: what it is,
-   the figure, the variance with its comparison, then its basis and unit. So every part sits level
-   across a strip however each wraps. */
+/* Subgrid: each cell spans the strip's four row tracks (label, figure, variance, basis),
+   so they line up whatever wraps. */
 .kpi { min-width: 0; padding: var(--sp-2) var(--sp-4) var(--sp-3); background: var(--bg); display: grid; grid-row: span 4; grid-template-rows: subgrid; row-gap: var(--sp-1); }
 .kpi-row.pool > .kpi:nth-child(3n+1), .kpi-row.co > .kpi:nth-child(2n+1), .kpi-row:not(.pool):not(.co) > .kpi:nth-child(4n+1) { padding-left: 0; }
 .kpi-head { order: 1; display: flex; align-items: center; gap: var(--sp-1); min-height: 24px; }
@@ -337,22 +317,20 @@ html[data-load="error"] .lede:has(> .stand-in)::after { content: "Shown once the
 .kpi-val { font-size: var(--fs-xl); font-weight: var(--w-medium); line-height: 1.15; letter-spacing: -0.01em; font-variant-numeric: tabular-nums lining-nums; overflow-wrap: anywhere; }
 .kpi-foot { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); font-size: var(--fs-xs); }
 .kpi-cmp { color: var(--muted); }
-/* One variance treatment: coloured text, a triangle and a sign. No pill. */
+/* Variance: coloured text, triangle, sign. No pill. */
 .kpi-delta {
   display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-1); max-width: 100%; padding: 0;
   border: 0; background: none; font-size: var(--fs-sm); font-weight: var(--w-medium); line-height: 1.35; color: var(--ink-2);
 }
 .kpi-delta .nw { white-space: nowrap; }
 .kpi-delta .glyph { margin-right: var(--sp-1); font-size: 0.85em; }
-/* The parts of a variance are spaced, not dotted, so a wrap never leaves a dot at a line end.
-   The dot is still read, so the parts never run together. */
+/* Spaced rather than dotted so a wrap can't strand a dot at a line end. */
 .kpi-delta { column-gap: var(--sp-2); }
 .kpi-delta .sep { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .kpi-delta.fav { color: var(--fav); }
 .kpi-delta.unfav { color: var(--unfav); }
 .kpi-empty { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3) 0; background: var(--bg); color: var(--muted); }
-/* Skeleton cells: bars where the label, the figure and the variance will be, over a stand-in
-   of the card that replaces each, which gives the cell that card's row tracks. */
+/* Skeleton bars sit over a stand-in card, which gives them its row tracks. */
 .kpi.sk { position: relative; }
 .kpi.sk > .stand-in { display: contents; }
 .kpi.sk .sk-bar { position: absolute; top: 12px; left: 16px; height: 12px; width: 50%; border-radius: 2px; background: var(--track); }
@@ -368,7 +346,7 @@ html[data-load="error"] .lede:has(> .stand-in)::after { content: "Shown once the
 .p-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); min-height: 32px; }
 .p-head h2, .p-head h3:not(.eyebrow) { font-size: var(--fs-md); font-weight: var(--w-strong); }
 .p-head h2:focus, .p-head h3:focus { outline: none; }
-/* The company a panel shows, in the selected company control's own ink. */
+/* company name in the panel heading */
 .co-tag { margin-left: var(--sp-1); font-weight: var(--w-regular); color: var(--muted); }
 .co-tag:empty { display: none; }
 .p-head .seg { margin-left: auto; }
@@ -384,7 +362,7 @@ html[data-load="error"] .lede:has(> .stand-in)::after { content: "Shown once the
 .h-btb { height: 96px; }
 canvas:focus-visible { outline-offset: 2px; }
 
-/* Legend: one toggle per series, drawn in its own line style, with its basis. */
+/* Legend toggles, drawn in each series' line style. */
 .legend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); min-height: 28px; }
 .key { display: inline-flex; align-items: center; }
 .chip {
@@ -397,8 +375,7 @@ canvas:focus-visible { outline-offset: 2px; }
 .chip[aria-pressed="false"] .chip-sw { opacity: 0.35; }
 .chip .tag, .fan-key .tag, .p-head > .tag { margin-left: var(--sp-1); }
 .chip .tag:empty { display: none; }
-/* A chart legend's basis is read with each entry but shown once, beside the panel's title, which
-   names the same basis. The scenario key mixes bases, so it keeps its tags. */
+/* Basis shows once beside the title; the scenario key mixes bases, so it keeps its tags. */
 .chip .tag { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Tooltip */
@@ -415,7 +392,7 @@ canvas:focus-visible { outline-offset: 2px; }
 .tip-col.n { text-align: right; }
 .tip-sw { width: 14px; height: 0; border-top: 3px solid var(--c); }
 .tip-sw.dash { border-top-style: dashed; }
-.tip-label { min-width: 9em; color: var(--muted); }  /* a long series name wraps rather than being cut */
+.tip-label { min-width: 9em; color: var(--muted); }  /* long names wrap */
 .tip-val { text-align: right; font-weight: var(--w-strong); white-space: nowrap; }
 .tip-x { text-align: right; color: var(--muted); white-space: nowrap; }
 .tip-x.fav { color: var(--fav); font-weight: var(--w-strong); }
@@ -432,8 +409,8 @@ canvas:focus-visible { outline-offset: 2px; }
   padding: var(--sp-4); text-align: center; background: var(--bg);
 }
 .kpis[data-state] > .state { inset: 1px 0 0; }
-/* An empty or failed panel keeps its size, but what its message covers leaves the screen,
-   the tab order and the accessibility tree, so focus never lands under it (WCAG 2.4.11). */
+/* Empty/failed panels keep their size but hide what's under the message, so focus
+   can't land there (WCAG 2.4.11). */
 [data-state="empty"] > :not(.p-head):not(.state), [data-state="error"] > :not(.p-head):not(.state) { visibility: hidden; }
 [data-state="loading"] > .state { background: transparent; }
 [data-state="loading"] > .state .state-msg { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -444,20 +421,17 @@ canvas:focus-visible { outline-offset: 2px; }
 [data-state="error"] > .state .state-msg::before { content: "✗ "; color: var(--unfav); font-weight: var(--w-strong); }
 [data-state="error"] > .state[data-quiet] .state-msg { color: var(--muted); }
 [data-state="error"] > .state[data-quiet] .state-msg::before { content: none; }
-/* While the data loads, each slot it will fill already has its final size, so nothing below
-   moves when it arrives. A slot holds a stand-in, never seen or read: the text or table that
-   replaces it, with a # for each digit (a # is as wide as a digit), so it wraps as that text
-   will at any width. The script replaces each stand-in as it draws. */
+/* Stand-ins: never seen or read, just sized like the text that replaces them. */
 .stand-in { visibility: hidden; font-family: "Stand-in Digit", var(--font); }
 .legend > .stand-in, .replay-out > .stand-in { display: contents; }
 .co-tag:has(> .stand-in), .f-name:has(> .stand-in), .bottom-line:has(> .stand-in) { visibility: hidden; }
-/* A table with collapsed borders draws its hidden rows' rules, so the whole table hides. */
+/* Collapsed-border tables still draw hidden rows' rules, so hide the whole table. */
 table:has(> .stand-in) { visibility: hidden; }
-/* Where a placeholder is shown while loading, it sits over the stand-in that sizes its slot. */
+/* placeholder over the stand-in */
 .lede, .note, .eyebrow { position: relative; }
 .stand-in + .over { position: absolute; top: 0; left: 0; right: 0; }
-/* The tables and the scenario grid show as blocks, as the charts do. The grid's block is its
-   five rows of 32 px buttons with 4 px spacing (192px), under a header of four 12 px lines. */
+/* Tables and the scenario grid load as blocks. Grid: 5 rows of 32px + 4px gaps (192px)
+   under four 12px header lines. */
 [data-state="loading"] .bridge-table, [data-state="loading"] .bridge-drivers { background: var(--track); border-radius: var(--radius); }
 [data-state="loading"] .grid-wrap::after { content: ""; display: block; height: calc(192px + 4 * 1.45 * var(--fs-xs)); background: var(--track); border-radius: var(--radius); }
 
@@ -467,36 +441,34 @@ table:has(> .stand-in) { visibility: hidden; }
 #p-score .scroll-x { min-height: 350px; }
 table { border-collapse: collapse; }
 .score { width: 100%; font-size: var(--fs-sm); }
-/* Ruled like a printed statement: a hairline under each row, an ink rule under the head and
-   under the total, figures right-aligned in tabular lining digits. */
+/* Printed-statement rules: hairline per row, ink rule under the head and the total. */
 .score { width: 100%; font-size: var(--fs-sm); font-variant-numeric: tabular-nums lining-nums; }
 .score th, .score td { padding: var(--sp-2) var(--sp-2); border-bottom: 1px solid var(--line-soft); text-align: left; white-space: nowrap; font-weight: var(--w-regular); vertical-align: top; }
 .score th:first-child { padding-left: 0; }
 .score td:last-child, .score th:last-child { padding-right: 0; }
 .score thead th { font-size: var(--fs-xs); line-height: 1.35; color: var(--muted); font-weight: var(--w-medium); border-bottom: 1px solid var(--rule); vertical-align: bottom; white-space: normal; }
 .score thead .unit { display: block; font-size: var(--fs-xs); font-weight: var(--w-regular); }
-/* The group headers name what a block of columns compares; a hairline ties each to its block. */
+/* Group headers, tied to their columns by a hairline. */
 .score thead th.grp { padding-bottom: var(--sp-1); border-bottom: 1px solid var(--line); text-align: center; color: var(--ink-3); text-wrap: balance; }
 .score thead tr + tr th { padding-top: var(--sp-1); }
 .score tbody th { font-weight: var(--w-medium); }
 .score .n { text-align: right; }
 .score .var { min-width: 6.5em; }
-/* The pooled row reads as the total; the selected company's row carries a rule at its left. */
+/* Pooled row reads as the total; the selected company gets a left rule. */
 .score tr.all th, .score tr.all td { font-weight: var(--w-strong); border-bottom-color: var(--rule); }
 .score tr.on > th { box-shadow: inset 2px 0 0 var(--ink); padding-left: var(--sp-2); }
-/* The lowest miss in a row: heavier, on a faint ink-blue ground. Never underlined. */
+/* lowest miss in the row */
 .score td.low { font-weight: var(--w-strong); background: var(--mark); }
 .score tbody tr:has(.co-pick) { cursor: pointer; }
 .score tbody tr:has(.co-pick):hover > :not(.low) { background: var(--wash); }
 .score td.fav { color: var(--fav); }
 .score td.unfav { color: var(--unfav); }
 .score td.count { color: var(--muted); }
-/* A variance bar under its figure, on one scale for the column, from a zero line at the centre.
-   It takes the figure's colour; the figure, its sign and ▲/▼ carry the meaning. */
+/* Variance bar, one scale per column, zero at the centre. The figure carries the meaning. */
 .vbar { display: block; position: relative; height: 6px; margin-top: var(--sp-1); background: var(--track); }
 .vbar::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--axis); }
 .vbar i { position: absolute; top: 0; bottom: 0; background: currentColor; }
-/* A company name picks that company: set as a name in ink, underlined only under the pointer. */
+/* Company names pick the company. Underline on hover only. */
 .co-pick { min-height: 24px; margin: calc(-1 * var(--sp-1)) 0 calc(-1 * var(--sp-1)) calc(-1 * var(--sp-1)); border: 0; background: none; padding: 0 var(--sp-1); font-weight: var(--w-medium); color: var(--ink); text-underline-offset: 3px; }
 .co-pick { text-decoration: underline dotted; text-decoration-color: var(--axis); }
 .co-pick:hover { text-decoration-style: solid; }
@@ -555,12 +527,11 @@ table { border-collapse: collapse; }
 .ctl-head output { margin-left: auto; font-weight: var(--w-strong); }
 .ticks { position: relative; height: 16px; margin: var(--sp-1) var(--sp-2) 0; font-size: var(--fs-2xs); color: var(--muted); }
 .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
-/* The end labels sit flush with the ends of the track (8px past the end thumb positions)
-   rather than centred on them, so they never stick out past the slider. */
+/* End labels align with the track ends (8px past the end thumbs) so they don't overhang. */
 .ticks span:first-child { transform: translateX(-8px); }
 .ticks span:last-child { transform: translateX(calc(8px - 100%)); }
 .ticks span.on { color: var(--ink); font-weight: var(--w-strong); }
-/* The scenario readout is the one inset: a tone step off the page, no border. */
+/* Scenario readout: the only inset on the page. */
 .big { padding: var(--sp-3) var(--sp-4); background: var(--sunken); border-radius: var(--radius); display: flex; flex-direction: column; gap: var(--sp-1); }
 .big-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .big-num { font-size: var(--fs-xl); font-weight: var(--w-strong); line-height: 1.15; }
@@ -605,7 +576,6 @@ table { border-collapse: collapse; }
 
 /* ---------- granular table ---------- */
 
-/* Tabs are words with a rule under the chosen one, as in a printed report's contents. */
 .tabs { display: inline-flex; gap: var(--sp-4); margin-left: var(--sp-3); }
 .tabs [role="tab"] {
   min-height: 32px; padding: 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
@@ -618,11 +588,11 @@ table { border-collapse: collapse; }
 .ctl-inline.grow { flex: 1 1 220px; }
 .ctl-inline select, .ctl-inline input { text-transform: none; letter-spacing: 0; font-weight: var(--w-regular); color: var(--ink); }
 .count { font-size: var(--fs-xs); color: var(--muted); align-self: center; white-space: nowrap; }
-/* A table wider than its box scrolls inside a hairline frame, so its cut edge reads as a scroll, not a clip. */
+/* Wide table scrolls inside a hairline frame so the cut edge reads as a scroll. */
 .tbl-scroll { position: relative; overflow: auto; max-height: 560px; min-height: 200px; border: 1px solid var(--line-soft); }
 [data-state="loading"] .tbl-scroll { height: 560px; }
 .data { width: 100%; font-size: var(--fs-xs); }
-/* The visible caption sits above the scroll box, so it wraps instead of scrolling away. */
+/* caption above the scroll box so it wraps */
 .tbl-caption { margin: 0 0 var(--sp-2); font-size: var(--fs-xs); color: var(--muted); text-wrap: pretty; }
 .data th, .data td { padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line-soft); text-align: left; white-space: nowrap; font-weight: var(--w-regular); }
 .data tbody th { font-weight: var(--w-strong); }
@@ -630,8 +600,8 @@ table { border-collapse: collapse; }
 .data tfoot .pair { display: block; }
 .data tfoot .pair + .pair { margin-top: var(--sp-2); }
 .data .n { text-align: right; }
-/* The sticky rows draw their rules as inset shadows: with collapsed borders a cell's
-   border belongs to the table, so it would stay behind and leave a gap to scroll through. */
+/* Sticky rows draw their rules as inset shadows. With collapsed borders the border belongs
+   to the table, stays behind, and leaves a gap you can see through. */
 .data thead th { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 0; box-shadow: inset 0 -1px 0 var(--rule); padding: 0; vertical-align: bottom; }
 .data tfoot td, .data tfoot th { position: sticky; bottom: 0; z-index: 2; background: var(--bg); border-top: 0; box-shadow: inset 0 1px 0 var(--rule); padding-top: var(--sp-2); font-weight: var(--w-strong); vertical-align: top; }
 .sort {
@@ -641,7 +611,7 @@ table { border-collapse: collapse; }
 }
 .n .sort { align-items: flex-end; text-align: right; }
 .sort .unit, .data tfoot .unit { display: block; font-size: var(--fs-2xs); font-weight: var(--w-regular); letter-spacing: 0; text-transform: none; color: var(--muted); }
-/* Inside the scroll box an outset ring would be clipped by its edge. */
+/* An outset ring would get clipped here. */
 .sort:focus-visible, .co-pick:focus-visible, .data a:focus-visible { outline-offset: -2px; }
 .sort .arrow { position: absolute; right: 4px; bottom: 8px; font-size: var(--fs-2xs); color: var(--muted); }
 [aria-sort] .sort .arrow { color: var(--ink); }
@@ -705,8 +675,7 @@ kbd { display: inline-block; min-width: 20px; padding: 0 var(--sp-1); border: 1p
 
 /* ---------- responsive ---------- */
 
-/* Both strips keep the same cell at every width above a phone: label, figure, variance and
-   comparison, then basis. The selected company's four sit two by two beside the scorecard. */
+/* Above phone width both strips keep the same cell; the company's four go two by two. */
 @media (max-width: 1200px) {
   .summary, .body { grid-template-columns: minmax(0, 1fr); }
   .kpi-row.co { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -722,8 +691,7 @@ kbd { display: inline-block; min-width: 20px; padding: 0 var(--sp-1); border: 1p
   .top { position: static; }
   html { scroll-padding-top: var(--sp-3); }
 }
-/* On a phone a KPI is a row: what it is at left, the figure at right, then the variance and
-   comparison, then the basis. Every KPI takes this form, so both strips still match. */
+/* Phone: each KPI is a row with the figure on the right. */
 @media (max-width: 720px) {
   :root { --fs-finding: 1.3125rem; } /* 21px */
   .kpi-row, .kpi-row.pool, .kpi-row.co { grid-template-columns: minmax(0, 1fr); }
@@ -744,11 +712,11 @@ kbd { display: inline-block; min-width: 20px; padding: 0 var(--sp-1); border: 1p
   main { padding-top: var(--sp-4); }
   .summary { row-gap: var(--sp-6); }
 }
-/* The header on a phone: the title in two short lines with the two utility icons at its
-   right, then every filter, side by side where they fit. None hides behind a disclosure. */
+/* Phone header: two-line title with the icons beside it, then every filter. Nothing hidden
+   behind a disclosure. */
 @media (max-width: 760px) {
   .top-in { position: relative; align-items: flex-start; row-gap: var(--sp-3); }
-  .brand { padding-right: 100px; }  /* the two 44px icon targets and their gap */
+  .brand { padding-right: 100px; }  /* two 44px targets + gap */
   h1 { font-size: var(--fs-lg); }
   .filters { justify-content: flex-start; margin-left: 0; gap: var(--sp-3) var(--sp-4); }
   .f-active { flex-direction: row; align-items: center; gap: var(--sp-2); padding-left: 0; border-left: 0; }
@@ -766,7 +734,7 @@ kbd { display: inline-block; min-width: 20px; padding: 0 var(--sp-1); border: 1p
 @media (pointer: coarse) {
   .seg button, .seg > .stand-in > span, .btn, select, input[type="search"], .tabs [role="tab"], .period select, .f .btn { min-height: 44px; height: auto; }
   .f-tools .btn { width: 44px; }
-  /* The info mark stays small; its target is 44px. */
+  /* small mark, 44px target */
   .info { position: relative; }
   .info::after { content: ""; position: absolute; inset: -10px; }
   .grid td button { min-height: 44px; }
@@ -777,7 +745,7 @@ kbd { display: inline-block; min-width: 20px; padding: 0 var(--sp-1); border: 1p
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
-  /* The script hides Play under reduced motion; while loading, its space goes too. */
+  /* JS hides Play under reduced motion; drop its space while loading too. */
   [data-state="loading"] #play { display: none; }
 }
 @media (prefers-contrast: more) {
@@ -803,7 +771,7 @@ kbd { display: inline-block; min-width: 20px; padding: 0 var(--sp-1); border: 1p
   .range::-webkit-slider-runnable-track { background: GrayText; }
   .range::-webkit-slider-thumb { background: Canvas; border-color: Highlight; }
   .kpi, .tip, .def, .peek, .recon { border: 1px solid CanvasText; }
-  /* Forced colours drop box shadows, so the sticky rows' rules come back as borders. */
+  /* Forced colours drop box-shadow, so the sticky rules come back as borders. */
   .data thead th { border-bottom: 1px solid CanvasText; }
   .data tfoot td, .data tfoot th { border-top: 2px solid CanvasText; }
 }

@@ -1,6 +1,5 @@
-/* What if: move today's backlog or its conversion rate and read the revenue they imply for
-   the next four quarters. A scenario, not a prediction, so its change is shown without
-   red or green: neither direction is a variance against a plan. */
+/* What-if: move today's backlog or its conversion rate and see next-four-quarter revenue.
+   It's a scenario, not a variance against a plan, so no red or green. */
 
 import { $, el, announce, fade } from "../dom.js";
 import { usdB, usdM, signedB, setting, pct, spoken } from "../format.js";
@@ -48,9 +47,8 @@ export function renderWhatIf(model, st, c, fromInput) {
   $("fwd-delta").textContent = st.shock === 0 && st.shift === 0
     ? "Today's backlog at its typical conversion rate"
     : delta(val, base) + " against " + usdB(base) + " with no change";
-  // The scenario's inputs: today's backlog and the four-quarter conversion the published
-  // no-change scenario implies, each with its change. Stated as inputs rather than as a
-  // product, since rounded inputs need not multiply back to the rounded total.
+  // Inputs: today's backlog and the four-quarter conversion implied by the no-change scenario.
+  // Shown as inputs, not a product, since rounded inputs won't multiply back to the rounded total.
   const conv = base / last.backlog * 100, inputs = $("fwd-inputs");
   inputs.textContent = "";
   [`Backlog ${usdB(last.backlog * (1 + st.shock / 100))}${st.shock ? ` (${setting(st.shock)})` : ""}`,
@@ -88,8 +86,7 @@ export function renderWhatIf(model, st, c, fromInput) {
   return null;
 }
 
-// The 5 × 5 grid of every scenario, shaded on a single-hue scale by revenue. A neutral
-// scale, since a higher scenario is not a favourable variance.
+// 5 × 5 grid on a single-hue scale. Neutral, since a higher scenario isn't "better".
 function buildGrid(t, S, c) {
   const all = [];
   S.shocks.forEach((s) => S.shifts.forEach((f) => all.push(S.cell(s, f))));
@@ -132,7 +129,7 @@ function buildGrid(t, S, c) {
   table.$key = t + "|" + c.backlog + "|" + c.surface;
 }
 
-// Arrow keys move through the grid and choose the scenario under the cursor, as a radio group does.
+// Arrow keys move and select, like a radio group.
 export function gridKeys(e) {
   const b = e.target.closest ? e.target.closest("td button") : null;
   if (!b) return;
@@ -169,8 +166,8 @@ function hover(s, f) {
   ch.update("none");
 }
 
-// Trailing four-quarter revenue to the latest quarter, then every scenario as a straight
-// join to the quarter four ahead, where trailing revenue equals the scenario's total.
+// Trailing revenue up to the latest quarter, then a straight line four quarters out to each
+// scenario's total.
 function renderFan(t, S, rows, c, st) {
   const L = rows.length - 1, H = Math.min(8, L + 1), start = L - H + 1, last = rows[L];
   const labels = rows.slice(start).map((r) => r.quarter).concat([1, 2, 3, 4].map((n) => nextQuarter(last.quarter, n)));
@@ -194,7 +191,7 @@ function renderFan(t, S, rows, c, st) {
   sel.spanGaps = true;
   datasets.push(none, sel);
   const mn = Math.min(...all), mx = Math.max(...all);
-  // GAAP history and model scenarios share the axis; the key and the two span labels say which is which.
+  // GAAP history and model scenarios share the axis; the key and span labels tell them apart.
   const opts = baseOptions(c, "US$ billions", "");
   opts.scales.y.ticks.maxTicksLimit = 5;
   upsert("c-fan", { type: "line", data: { labels, datasets }, options: opts }, {
@@ -218,8 +215,7 @@ function renderFan(t, S, rows, c, st) {
     `for the four quarters to ${labels[end]} run from ${usdB(mn)} to ${usdB(mx)}; the selected one is ${usdB(val)}.`);
 }
 
-/* On a narrow screen the scenario figure rides at the foot of the screen while the sliders
-   or grid are in view and the readout is not. */
+/* Phones: pin the scenario figure to the bottom while the controls are in view and the readout isn't. */
 export function watchPeek() {
   const pill = $("peek"), narrow = window.matchMedia("(max-width: 900px)");
   if (!window.IntersectionObserver) return;

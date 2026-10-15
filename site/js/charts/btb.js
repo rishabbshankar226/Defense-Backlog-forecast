@@ -1,6 +1,5 @@
-/* Implied book-to-bill under the backlog chart, quarter for quarter. A bar runs up from
-   1.0× when backlog grew in the quarter (favourable, green) and down when it shrank
-   (unfavourable, red); the direction carries the meaning as well as the colour. */
+/* Implied book-to-bill under the backlog chart. Bars go up from 1.0× when backlog grew in
+   the quarter and down when it shrank, so direction carries the meaning, not just colour. */
 
 import { $, fade } from "../dom.js";
 import { times, usdM } from "../format.js";

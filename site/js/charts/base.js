@@ -1,6 +1,6 @@
-/* Shared chart machinery: one Chart.js plugin for every custom drawing, one HTML tooltip,
-   one options builder with explicit axes, the legend, linked crosshairs and keyboard reading.
-   Chart.js is loaded as a classic script before the modules, so it is the global `Chart`. */
+/* Shared chart code: one Chart.js plugin for all the custom drawing, the HTML tooltip,
+   the options builder, legend, linked crosshairs and keyboard reading. Chart.js loads first
+   as a classic script, so it's the global `Chart`. */
 
 import { $, el, still, fade, announce } from "../dom.js";
 import { usdB, spoken } from "../format.js";
@@ -43,7 +43,7 @@ const theme = {
 
 export function font(size, weight = 600) { return weight + " " + size + "px " + Chart.defaults.font.family; }
 
-// A solid crosshair where the pointer is; a dashed one where a linked chart's pointer is.
+// Solid crosshair under the pointer, dashed where a linked chart is pointing.
 function drawCrosshair(chart) {
   const a = chart.chartArea, ctx = chart.ctx;
   const act = chart.tooltip ? chart.tooltip.getActiveElements() : [];
@@ -60,7 +60,7 @@ function drawCrosshair(chart) {
   ctx.setLineDash([]);
 }
 
-// A reference rule across the plot at one value, such as book-to-bill of 1.0×.
+// Horizontal reference line, e.g. book-to-bill at 1.0×.
 function drawBaseline(chart) {
   const a = chart.chartArea, ctx = chart.ctx, y = Math.round(chart.scales.y.getPixelForValue(chart.$baseline)) + 0.5;
   if (y < a.top || y > a.bottom) return;
@@ -105,14 +105,14 @@ export function linkHover(evt, els, chart) {
   });
 }
 
-// The replay head's x position, between two forecasts while it moves.
+// replay head x, interpolated while it moves
 export function headX(chart) {
   const xs = chart.scales.x, u = chart.$upto, i = Math.floor(u), f = u - i;
   const x0 = xs.getPixelForValue(i), n = chart.data.labels.length;
   return i + 1 < n ? x0 + (xs.getPixelForValue(i + 1) - x0) * f : x0;
 }
 
-// During a replay, Actual stays on screen as a faint track ahead of the head.
+// During a replay, Actual stays visible as a faint track ahead of the head.
 function drawGhost(chart) {
   if (!chart.isDatasetVisible(0)) return;
   const pts = chart.getDatasetMeta(0).data, ctx = chart.ctx;
@@ -130,7 +130,7 @@ function drawGhost(chart) {
   ctx.restore();
 }
 
-// The replay head: a dotted rule at the forecast being read, labelled with its quarter.
+// Replay head: dotted rule with the quarter label.
 function drawHead(chart) {
   const a = chart.chartArea, ctx = chart.ctx, c = chart.$colors, x = Math.round(headX(chart)) + 0.5;
   ctx.save();
@@ -156,8 +156,8 @@ function drawHead(chart) {
   ctx.restore();
 }
 
-// The gap between the backlog forecast and Actual, shaded so every miss reads as an area.
-// Neutral: a miss is shown by its size, and judged against the baselines elsewhere.
+// Shade between the backlog forecast and Actual so each miss reads as an area. Kept
+// neutral; it gets judged against the baselines elsewhere.
 function drawBand(chart) {
   if (!chart.isDatasetVisible(0) || !chart.isDatasetVisible(1)) return;
   const A = chart.getDatasetMeta(0).data, B = chart.getDatasetMeta(1).data, ctx = chart.ctx;
@@ -180,8 +180,8 @@ function drawBand(chart) {
   ctx.restore();
 }
 
-// The forecast span of the scenario fan, as a light wash with its name at the top, and the
-// reported span before it named too. A name too wide for the wash falls back to a shorter one.
+// Scenario fan: a light wash over the forecast span with its name on top, and a label for
+// the reported span. Falls back to a shorter name if it doesn't fit.
 function drawFuture(chart) {
   const a = chart.chartArea, ctx = chart.ctx, c = chart.$colors;
   const x = chart.scales.x.getPixelForValue(chart.$future);
@@ -199,8 +199,7 @@ function drawFuture(chart) {
   ctx.restore();
 }
 
-// Each line's latest value at its right end, anchored to the line by a leader, nudged
-// apart so none overlap.
+// End-of-line value labels with leaders, nudged apart so they don't overlap.
 function drawEnds(chart) {
   const a = chart.chartArea, ctx = chart.ctx, c = chart.$colors, items = [];
   chart.data.datasets.forEach((ds, i) => {
@@ -233,7 +232,7 @@ function drawEnds(chart) {
   ctx.restore();
 }
 
-// The largest miss: a ring on the forecast and a bracket to what happened, in ink.
+// Largest miss: ring on the forecast, bracket to the actual.
 function drawMiss(chart) {
   const m = chart.$miss, c = chart.$colors, ctx = chart.ctx;
   if (m.index < 0 || !chart.isDatasetVisible(m.ds)) return;
@@ -258,8 +257,8 @@ function drawMiss(chart) {
   ctx.lineWidth = 1.5;
   ctx.stroke();
   if (m.label) {
-    // A boxed tag beside the ring, so it reads over the lines. It goes right of the ring,
-    // else left, and always stays inside the plot; on a narrow plot it drops to the figure.
+    // Boxed tag next to the ring: right if it fits, else left, always inside the plot.
+    // Narrow plots drop it.
     const a = chart.chartArea, size = a.right - a.left < 360 ? 11 : 12, gap = 8, padX = 4, h = size + 6;
     ctx.font = font(size);
     const room = Math.max(a.right - p.x, p.x - a.left) - gap;
@@ -283,8 +282,7 @@ function drawMiss(chart) {
   ctx.restore();
 }
 
-// Waterfall: a hairline from where each step ends to where the next starts, and each
-// bar's value just above it. A label with no room is dropped; the table beside it has all.
+// Waterfall connectors and value labels. A label with no room is dropped (the table has them all).
 function drawConnectors(chart) {
   const bars = chart.getDatasetMeta(0).data, ctx = chart.ctx;
   ctx.save();
@@ -317,9 +315,8 @@ function drawConnectors(chart) {
   ctx.restore();
 }
 
-// A bar that measures from zero but starts on an axis cut above it is drawn with a break: a
-// slanted gap across it near the axis, and the same across the axis line, as print charts do.
-// `$breaks` lists the bars that measure from zero (a waterfall's totals).
+// Bars that measure from zero on a cut axis get a print-style break across the bar and the
+// axis line. `$breaks` lists which bars (the waterfall totals).
 function drawBreaks(chart) {
   const a = chart.chartArea, ctx = chart.ctx, y = a.bottom - 12, rise = 3, gap = 3;
   const band = (x0, x1) => {
@@ -341,7 +338,7 @@ function drawBreaks(chart) {
 
 /* ---------- tooltip ---------- */
 
-// One HTML tooltip for every chart, with figures right-aligned in their own columns.
+// One HTML tooltip for every chart; figures get their own right-aligned columns.
 function externalTip(context) {
   const chart = context.chart, model = context.tooltip, box = chart.canvas.parentNode;
   let tip = box.querySelector(".tip");
@@ -355,7 +352,7 @@ function externalTip(context) {
   tip.textContent = "";
   if (spec.title) tip.appendChild(el("div", "tip-title", spec.title));
   const rows = el("div", "tip-rows");
-  // A column no row fills is left out, heading and all, so the tooltip never shows an empty one.
+  // Drop any column no row fills, header included.
   const hasX = spec.rows.some((r) => r.extra), hasC = spec.rows.some((r) => r.change);
   rows.style.gridTemplateColumns = "14px minmax(0, auto) auto" + (hasX ? " auto" : "") + (hasC ? " auto" : "");
   if (spec.cols) {
@@ -397,11 +394,8 @@ function externalTip(context) {
 const tickB = (v) => (v < 0 ? "−" : "") + "$" + Math.abs(v).toLocaleString("en-US") + "B";
 
 /**
- * Shared options, the one chart theme every chart reads: a hairline baseline on the x axis
- * with a tick mark at each year, solid hairline gridlines across the plot and none down it,
- * no y axis line, and no y axis title. The ticks carry the unit ($B, ×) and the panel's
- * subtitle carries the basis, so nothing is set sideways. Ticks are in the page's own face,
- * whose digits are all one width, so figures line up without a monospaced font.
+ * Options every chart shares: hairline x baseline with a tick per year, horizontal gridlines
+ * only, no y axis line or title (the ticks carry the unit, the panel subtitle the basis).
  * @param c       colours from colors()
  * @param yTitle  what the y axis measures, e.g. "US$ billions"; named in the panel, not drawn
  * @param xTitle  x-axis title, or "" for none
@@ -435,8 +429,7 @@ export function baseOptions(c, yTitle, xTitle, yTick = tickB) {
   };
 }
 
-// Quarterly axes are labelled at each year's first quarter (every other year when narrow).
-// Each Q1 gets a tick mark; tooltips name the exact quarter.
+// Label Q1 of each year (every other year when narrow); tooltips give the exact quarter.
 function yearTick(value) {
   const q = this.getLabelForValue(value);
   if (typeof q !== "string" || !/Q1$/.test(q)) return "";
@@ -509,8 +502,8 @@ function spotlight(chart, i) {
 }
 
 /**
- * HTML legend: one toggle per line, drawn in the line's own style (solid or dashed), with
- * its basis tag and a definition button for any term of art. Pressing it hides the line.
+ * HTML legend: a toggle per line in its own dash style, with basis tag and an info button
+ * where the term needs one. Clicking hides the line.
  */
 export function renderLegend(boxId, chart, which, view, basis) {
   const box = $(boxId), sets = chart.data.datasets;
@@ -588,8 +581,8 @@ export function clearTips() {
   });
 }
 
-// A focused chart steps through its points with the arrow keys, showing the same tooltip
-// and linked crosshairs a pointer would, and speaking the tooltip's rows.
+// Arrow keys step through a focused chart's points with the same tooltip and crosshairs as
+// the pointer, and the tooltip rows get announced.
 function stepChart(e) {
   const id = e.currentTarget.id, ch = charts[id];
   if (!ch) return;
@@ -637,8 +630,8 @@ export function watchCharts() {
     if (touched) { touched = false; clearTips(); }
   }, { passive: true });
   window.addEventListener("scroll", () => { if (touched) { touched = false; clearTips(); } }, { passive: true });
-  // A hidden tooltip keeps its last position. After the window narrows (a phone turned
-  // upright) that can sit past the new edge and widen the page, so it goes back to 0.
+  // A hidden tooltip keeps its last position, which after rotating a phone can sit past the
+  // edge and widen the page. Reset it.
   window.addEventListener("resize", () => {
     document.querySelectorAll(".tip").forEach((t) => { if (!t.classList.contains("show")) t.style.transform = ""; });
   });

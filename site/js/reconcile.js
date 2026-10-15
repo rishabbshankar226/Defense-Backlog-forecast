@@ -1,6 +1,5 @@
-/* Reconciliation. Each check recomputes a figure the charts or KPIs show from the rows in
-   the granular table, in whole cents, and compares. A check passes only at a difference of
-   exactly $0.00 (or, for the error rates, under 1e-9 percentage points). */
+/* Reconciliation: recompute each figure the charts and KPIs show from the table's rows, in
+   whole cents, and compare. A pass means exactly $0.00 (error rates: under 1e-9 pp). */
 
 import { MODELS } from "./copy.js";
 import { cents } from "./format.js";
@@ -116,7 +115,7 @@ export function reconcile(model, tickers, period, view) {
     const conv4 = (k) => (k < 0 || k + 4 > L || rows[k].backlog == null || !rows[k].backlog ? null : sum(k + 1, 4) == null ? null : sum(k + 1, 4) / rows[k].backlog);
     const cs = [4, 5, 6, 7].map((k) => conv4(L - k));
     const base = cs.some((x) => x == null) ? null : mean(cs);
-    // The four-quarter conversion the what-if prints as its starting rate: the no-change cell over today's backlog.
+    // What-if starting rate: the no-change cell over today's backlog.
     same(scenario, S.cell(0, 0) == null || !rows[L].backlog ? null : S.cell(0, 0) / rows[L].backlog, base, `${t} typical conversion`, 1e-12);
     S.shocks.forEach((s) => S.shifts.forEach((f) => {
       const want = base == null || rows[L].backlog == null ? null : rows[L].backlog * (1 + s / 100) * (base + f / 100);
@@ -127,8 +126,8 @@ export function reconcile(model, tickers, period, view) {
 
   const groups = ["ALL", ...tickers];
 
-  // The KPIs and scorecard: every forecast in the period, with APE and bias worked again
-  // from the Forecast and Actual columns, against the shared summary they are drawn from.
+  // KPIs and scorecard: APE and bias recomputed from the Forecast and Actual columns,
+  // against the shared summary they're drawn from.
   const fc = forecastsFor(model, view, period);
   const s = summarize(fc, view + "|" + period.from + "|" + period.to);
   const sh = sharedSummary(fc, "shared|" + view + "|" + period.from + "|" + period.to);
